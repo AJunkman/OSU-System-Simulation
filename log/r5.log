@@ -1,0 +1,97 @@
+2021/10/28 16:31:56 PM - INFO - Serial0 up
+2021/10/28 16:32:06 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': []} 
+2021/10/28 16:32:06 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': []} 
+2021/10/28 16:32:06 PM - INFO - Seen OSU1
+2021/10/28 16:32:16 PM - INFO - Adjacency established with OSU1
+2021/10/28 16:32:16 PM - INFO - Creating initial LSA
+2021/10/28 16:32:16 PM - INFO - Flooding own LSA
+2021/10/28 16:32:16 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:32:16 PM - INFO - shortest_paths: {}
+2021/10/28 16:32:16 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:32:16 PM - INFO - Data sent: {'adv_osu': 'OSU5', 'age': 1, 'seq_no': 1, 'networks': {'1.1.5.0': ('OSU1', 10.0, '1.1.5.2', '255.255.255.0')}, 'tlv': {'Serial0': {'type': 2, 'val': {'10': ('OSU5', 'OSU1'), '6': '10000000', '7': '9999997', '8': '3', '27': None}}}} 
+2021/10/28 16:32:16 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:32:16 PM - INFO - Seen OSU1
+2021/10/28 16:32:16 PM - INFO - Data received: {'adv_osu': 'OSU2', 'age': 1, 'seq_no': 2, 'networks': {'10.46.128.0': ('OSU3', 2.2222222222222223, '10.46.200.1', '255.255.128.0'), '10.36.0.0': ('OSU1', 1.0, '10.36.2.100', '255.255.128.0')}, 'tlv': {'Serial1': {'type': 2, 'val': {'10': ('OSU2', 'OSU3'), '6': '45000000', '7': '44999993', '8': '7', '27': None}}, 'Serial0': {'type': 2, 'val': {'10': ('OSU2', 'OSU1'), '6': '100000000', '7': '99999989', '8': '11', '27': None}}}} 
+2021/10/28 16:32:16 PM - INFO - Received LSA of OSU2 via Serial0 and merged to the LSDB
+2021/10/28 16:32:16 PM - INFO - Flooding LSA of OSU2
+2021/10/28 16:32:16 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:32:16 PM - INFO - shortest_paths: {}
+2021/10/28 16:32:16 PM - INFO - Data received: {'adv_osu': 'OSU1', 'age': 1, 'seq_no': 4, 'networks': {'10.36.0.0': ('OSU2', 1.8518518518518519, '10.36.2.112', '255.255.128.0'), '1.1.5.0': ('OSU5', 1.8518518518518519, '1.1.5.1', '255.255.255.0'), '192.168.1.0': ('OSU4', 2.2222222222222223, '192.168.1.2', '255.255.255.0')}, 'tlv': {'Serial0': {'type': 2, 'val': {'10': ('OSU1', 'OSU2'), '6': '54000000', '7': '53999966', '8': '34', '27': None}}, 'Serial2': {'type': 2, 'val': {'10': ('OSU1', 'OSU5'), '6': '54000000', '7': '53999979', '8': '21', '27': None}}, 'Serial1': {'type': 2, 'val': {'10': ('OSU1', 'OSU4'), '6': '45000000', '7': '44999966', '8': '34', '27': None}}}} 
+2021/10/28 16:32:16 PM - INFO - Received LSA of OSU1 via Serial0 and merged to the LSDB
+2021/10/28 16:32:16 PM - INFO - Flooding LSA of OSU1
+2021/10/28 16:32:16 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:32:16 PM - INFO - shortest_paths: {'OSU2': ('OSU1', 11.851851851851851), 'OSU1': ('OSU1', 10.0)}
+2021/10/28 16:32:16 PM - INFO - Data received: {'adv_osu': 'OSU1', 'age': 1, 'seq_no': 4, 'networks': {'10.36.0.0': ('OSU2', 1.8518518518518519, '10.36.2.112', '255.255.128.0'), '1.1.5.0': ('OSU5', 1.8518518518518519, '1.1.5.1', '255.255.255.0'), '192.168.1.0': ('OSU4', 2.2222222222222223, '192.168.1.2', '255.255.255.0')}, 'tlv': {'Serial0': {'type': 2, 'val': {'10': ('OSU1', 'OSU2'), '6': '54000000', '7': '53999966', '8': '34', '27': None}}, 'Serial2': {'type': 2, 'val': {'10': ('OSU1', 'OSU5'), '6': '54000000', '7': '53999979', '8': '21', '27': None}}, 'Serial1': {'type': 2, 'val': {'10': ('OSU1', 'OSU4'), '6': '45000000', '7': '44999966', '8': '34', '27': None}}}} 
+2021/10/28 16:32:16 PM - INFO - Data received: {'adv_osu': 'OSU1', 'age': 1, 'seq_no': 4, 'networks': {'10.36.0.0': ('OSU2', 1.8518518518518519, '10.36.2.112', '255.255.128.0'), '1.1.5.0': ('OSU5', 1.8518518518518519, '1.1.5.1', '255.255.255.0'), '192.168.1.0': ('OSU4', 2.2222222222222223, '192.168.1.2', '255.255.255.0')}, 'tlv': {'Serial0': {'type': 2, 'val': {'10': ('OSU1', 'OSU2'), '6': '54000000', '7': '53999966', '8': '34', '27': None}}, 'Serial2': {'type': 2, 'val': {'10': ('OSU1', 'OSU5'), '6': '54000000', '7': '53999979', '8': '21', '27': None}}, 'Serial1': {'type': 2, 'val': {'10': ('OSU1', 'OSU4'), '6': '45000000', '7': '44999966', '8': '34', '27': None}}}} 
+2021/10/28 16:32:16 PM - INFO - Data received: {'adv_osu': 'OSU2', 'age': 1, 'seq_no': 2, 'networks': {'10.46.128.0': ('OSU3', 2.2222222222222223, '10.46.200.1', '255.255.128.0'), '10.36.0.0': ('OSU1', 1.0, '10.36.2.100', '255.255.128.0')}, 'tlv': {'Serial1': {'type': 2, 'val': {'10': ('OSU2', 'OSU3'), '6': '45000000', '7': '44999993', '8': '7', '27': None}}, 'Serial0': {'type': 2, 'val': {'10': ('OSU2', 'OSU1'), '6': '100000000', '7': '99999989', '8': '11', '27': None}}}} 
+2021/10/28 16:32:16 PM - INFO - Data received: {'adv_osu': 'OSU3', 'age': 1, 'seq_no': 2, 'networks': {'1.1.3.0': ('OSU4', 9.090909090909092, '1.1.3.2', '255.255.255.0'), '10.46.128.0': ('OSU2', 9.090909090909092, '10.46.231.100', '255.255.128.0')}, 'tlv': {'Serial1': {'type': 2, 'val': {'10': ('OSU3', 'OSU4'), '6': '11000000', '7': '10999997', '8': '3', '27': None}}, 'Serial0': {'type': 2, 'val': {'10': ('OSU3', 'OSU2'), '6': '11000000', '7': '10999991', '8': '9', '27': None}}}} 
+2021/10/28 16:32:16 PM - INFO - Received LSA of OSU3 via Serial0 and merged to the LSDB
+2021/10/28 16:32:16 PM - INFO - Flooding LSA of OSU3
+2021/10/28 16:32:16 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:32:16 PM - INFO - shortest_paths: {'OSU2': ('OSU1', 11.851851851851851), 'OSU1': ('OSU1', 10.0), 'OSU3': ('OSU1', 14.074074074074073)}
+2021/10/28 16:32:16 PM - INFO - Data received: {'adv_osu': 'OSU4', 'age': 1, 'seq_no': 2, 'networks': {'1.1.3.0': ('OSU3', 9.090909090909092, '1.1.3.1', '255.255.255.0'), '192.168.1.0': ('OSU1', 1.0, '192.168.1.1', '255.255.255.0')}, 'tlv': {'Serial1': {'type': 2, 'val': {'10': ('OSU4', 'OSU3'), '6': '11000000', '7': '10999982', '8': '18', '27': None}}, 'Serial0': {'type': 2, 'val': {'10': ('OSU4', 'OSU1'), '6': '100000000', '7': '99999980', '8': '20', '27': None}}}} 
+2021/10/28 16:32:16 PM - INFO - Received LSA of OSU4 via Serial0 and merged to the LSDB
+2021/10/28 16:32:16 PM - INFO - Flooding LSA of OSU4
+2021/10/28 16:32:16 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:32:16 PM - INFO - shortest_paths: {'OSU2': ('OSU1', 11.851851851851851), 'OSU1': ('OSU1', 10.0), 'OSU3': ('OSU1', 14.074074074074073), 'OSU4': ('OSU1', 12.222222222222221)}
+2021/10/28 16:32:26 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:32:26 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:32:26 PM - INFO - Seen OSU1
+2021/10/28 16:32:36 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:32:36 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:32:36 PM - INFO - Seen OSU1
+2021/10/28 16:32:46 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:32:46 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:32:46 PM - INFO - Seen OSU1
+2021/10/28 16:32:56 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:32:56 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:32:56 PM - INFO - Seen OSU1
+2021/10/28 16:33:06 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:33:06 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:33:06 PM - INFO - Seen OSU1
+2021/10/28 16:33:16 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:33:16 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:33:16 PM - INFO - Seen OSU1
+2021/10/28 16:33:26 PM - INFO - Refreshing own LSA
+2021/10/28 16:33:26 PM - INFO - Flooding own LSA
+2021/10/28 16:33:26 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:33:26 PM - INFO - shortest_paths: {'OSU2': ('OSU1', 11.851851851851851), 'OSU1': ('OSU1', 10.0), 'OSU3': ('OSU1', 14.074074074074073), 'OSU4': ('OSU1', 12.222222222222221)}
+2021/10/28 16:33:26 PM - INFO - Data sent: {'adv_osu': 'OSU5', 'age': 1, 'seq_no': 2, 'networks': {'1.1.5.0': ('OSU1', 10.0, '1.1.5.2', '255.255.255.0')}, 'tlv': {'Serial0': {'type': 2, 'val': {'10': ('OSU5', 'OSU1'), '6': '10000000', '7': '9999881', '8': '119', '27': None}}}} 
+2021/10/28 16:33:26 PM - INFO - Data received: {'adv_osu': 'OSU1', 'age': 2, 'seq_no': 5, 'networks': {'10.36.0.0': ('OSU2', 1.8518518518518519, '10.36.2.112', '255.255.128.0'), '1.1.5.0': ('OSU5', 1.8518518518518519, '1.1.5.1', '255.255.255.0'), '192.168.1.0': ('OSU4', 2.2222222222222223, '192.168.1.2', '255.255.255.0')}, 'tlv': {'Serial0': {'type': 2, 'val': {'10': ('OSU1', 'OSU2'), '6': '54000000', '7': '53999843', '8': '157', '27': None}}, 'Serial2': {'type': 2, 'val': {'10': ('OSU1', 'OSU5'), '6': '54000000', '7': '53999911', '8': '89', '27': None}}, 'Serial1': {'type': 2, 'val': {'10': ('OSU1', 'OSU4'), '6': '45000000', '7': '44999868', '8': '132', '27': None}}}} 
+2021/10/28 16:33:26 PM - INFO - Received LSA of OSU1 via Serial0 and merged to the LSDB
+2021/10/28 16:33:26 PM - INFO - Flooding LSA of OSU1
+2021/10/28 16:33:26 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:33:26 PM - INFO - shortest_paths: {'OSU2': ('OSU1', 11.851851851851851), 'OSU1': ('OSU1', 10.0), 'OSU3': ('OSU1', 14.074074074074073), 'OSU4': ('OSU1', 12.222222222222221)}
+2021/10/28 16:33:26 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:33:26 PM - INFO - Data received: {'adv_osu': 'OSU2', 'age': 1, 'seq_no': 3, 'networks': {'10.46.128.0': ('OSU3', 2.2222222222222223, '10.46.200.1', '255.255.128.0'), '10.36.0.0': ('OSU1', 1.0, '10.36.2.100', '255.255.128.0')}, 'tlv': {'Serial1': {'type': 2, 'val': {'10': ('OSU2', 'OSU3'), '6': '45000000', '7': '44999893', '8': '107', '27': None}}, 'Serial0': {'type': 2, 'val': {'10': ('OSU2', 'OSU1'), '6': '100000000', '7': '99999869', '8': '131', '27': None}}}} 
+2021/10/28 16:33:26 PM - INFO - Received LSA of OSU2 via Serial0 and merged to the LSDB
+2021/10/28 16:33:26 PM - INFO - Flooding LSA of OSU2
+2021/10/28 16:33:26 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:33:26 PM - INFO - shortest_paths: {'OSU2': ('OSU1', 11.851851851851851), 'OSU1': ('OSU1', 10.0), 'OSU3': ('OSU1', 14.074074074074073), 'OSU4': ('OSU1', 12.222222222222221)}
+2021/10/28 16:33:26 PM - INFO - Data received: {'adv_osu': 'OSU4', 'age': 1, 'seq_no': 3, 'networks': {'1.1.3.0': ('OSU3', 9.090909090909092, '1.1.3.1', '255.255.255.0'), '192.168.1.0': ('OSU1', 1.0, '192.168.1.1', '255.255.255.0')}, 'tlv': {'Serial1': {'type': 2, 'val': {'10': ('OSU4', 'OSU3'), '6': '11000000', '7': '10999867', '8': '133', '27': None}}, 'Serial0': {'type': 2, 'val': {'10': ('OSU4', 'OSU1'), '6': '100000000', '7': '99999831', '8': '169', '27': None}}}} 
+2021/10/28 16:33:26 PM - INFO - Received LSA of OSU4 via Serial0 and merged to the LSDB
+2021/10/28 16:33:26 PM - INFO - Flooding LSA of OSU4
+2021/10/28 16:33:26 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:33:26 PM - INFO - shortest_paths: {'OSU2': ('OSU1', 11.851851851851851), 'OSU1': ('OSU1', 10.0), 'OSU3': ('OSU1', 14.074074074074073), 'OSU4': ('OSU1', 12.222222222222221)}
+2021/10/28 16:33:26 PM - INFO - Data received: {'adv_osu': 'OSU3', 'age': 1, 'seq_no': 3, 'networks': {'1.1.3.0': ('OSU4', 9.090909090909092, '1.1.3.2', '255.255.255.0'), '10.46.128.0': ('OSU2', 9.090909090909092, '10.46.231.100', '255.255.128.0')}, 'tlv': {'Serial1': {'type': 2, 'val': {'10': ('OSU3', 'OSU4'), '6': '11000000', '7': '10999892', '8': '108', '27': None}}, 'Serial0': {'type': 2, 'val': {'10': ('OSU3', 'OSU2'), '6': '11000000', '7': '10999878', '8': '122', '27': None}}}} 
+2021/10/28 16:33:26 PM - INFO - Received LSA of OSU3 via Serial0 and merged to the LSDB
+2021/10/28 16:33:26 PM - INFO - Flooding LSA of OSU3
+2021/10/28 16:33:26 PM - INFO - Recalculating shortest paths and updating routing table
+2021/10/28 16:33:26 PM - INFO - shortest_paths: {'OSU2': ('OSU1', 11.851851851851851), 'OSU1': ('OSU1', 10.0), 'OSU3': ('OSU1', 14.074074074074073), 'OSU4': ('OSU1', 12.222222222222221)}
+2021/10/28 16:33:26 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:33:26 PM - INFO - Seen OSU1
+2021/10/28 16:33:36 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:33:36 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:33:36 PM - INFO - Seen OSU1
+2021/10/28 16:33:46 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:33:46 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:33:46 PM - INFO - Seen OSU1
+2021/10/28 16:33:56 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:33:56 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:33:56 PM - INFO - Seen OSU1
+2021/10/28 16:34:06 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:34:06 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:34:06 PM - INFO - Seen OSU1
+2021/10/28 16:34:16 PM - INFO - Data sent: {'osu_id': 'OSU5', 'address': '1.1.5.1', 'netmask': '255.255.255.0', 'seen': ['OSU1']} 
+2021/10/28 16:34:16 PM - INFO - Data received: {'osu_id': 'OSU1', 'address': '1.1.5.2', 'netmask': '255.255.255.0', 'seen': ['OSU2', 'OSU4', 'OSU5']} 
+2021/10/28 16:34:16 PM - INFO - Seen OSU1
