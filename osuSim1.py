@@ -351,6 +351,50 @@ class OSU(object):
             t.daemon = True
             t.start()
 
+    # 创建连接过程 
+    def _path(self, src_ip, dst_ip, dataSize):
+        shortestPath = self._lsdb.get_shortest_paths(self._hostname)
+        next_hop = shortestPath[dst_ip][0]
+        seen = list(self._seen.keys())
+        if next_hop in seen:
+            for iface in self._interfaces.values():
+                if next_hop == iface.link:
+                    # 项目中要考虑是否复用连接，如果复用，则先判断到目的地址的连接是否已经存在
+                    if dst_ip in iface.connection.keys() and dataSize <= iface.connection[dst_ip]:
+                        pass
+                    else:
+                        if dataSize < iface.rsv_bw:
+                            conn = Connection(src_ip, dst_ip, dataSize)
+                            if conn.path:
+                                # 初次创建应当将当前设备加入路径中
+                                conn.path.append((self, next_hop))
+                            else:
+                                conn.path.append(next_hop)
+                            iface.connection[dst_ip] = conn
+                            # 可用带宽减少
+                            iface.rsv_bw = iface.rsv_bw - dataSize
+                            # 不可用带宽增加
+                            iface.unrsv_bw = iface.unrsv_bw + dataSize
+                            # 端口创建的连接数增加
+                            iface.connNum += 1
+                            message = None
+                            # message = rsvp.pathMessage()
+                            # 注意message应当把当前的path也传过去
+                            iface.transmit(message)
+                            # 资源变化，通告LSA消息
+                            self._advertise()
+                        else:
+                            # 此处应当返回连接创建失败的消息
+                            pass
+    # 拆除连接过程
+    def _pathTear(self, conn):
+        # 
+        path = conn.path
+        for iface in self._interfaces.values():
+            pass
+        pass
+
+
 class Interface():
     # OSU接口
     def __init__(self, name, bandwidth, port, osu, av_delay=None):
@@ -366,6 +410,8 @@ class Interface():
         self.rsv_bw = bandwidth
         self.unrsv_bw = '0'
         self.av_delay = av_delay
+        self.connNum = 0
+        self.connection = {}
         logging.info('%s up' % (self.name, ))
     
     def transmit(self, packet):
@@ -374,6 +420,13 @@ class Interface():
         t = threading.Thread(target=IfaceTx, args=(thread_loop,self.remote_end_host, self.remote_end_port, packet,))
         t.daemon = True
         t.start()
+
+class Connection():
+    def __init__(self, src_ip, dst_ip, bandWidth):
+        self.src_ip = src_ip
+        self.dst_ip = dst_ip
+        self.bandWidth = bandWidth
+        self.path = []
 
 if __name__ == '__main__':
     AdjList = {}
