@@ -193,7 +193,8 @@ class OSU(object):
         # 清除当前路由表内容
         # 计算当前主机最短路径
         self._table.clear()
-        paths = self._lsdb.get_shortest_paths(self._hostname)
+        paths, cr = self._lsdb.get_shortest_paths(self._hostname)
+        logging.info('{} - completed paths: {}'.format(self._hostname, cr))
         logging.info('shortest_paths: %s'%(paths))
         if not paths:
             return
