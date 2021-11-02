@@ -32,7 +32,7 @@ class Graph(object):
         visited = {}
         previous = {}
         queue = []
-        heapq.heappush(queue, (dist[src],src))
+        heapq.heappush(queue, (dist[src], src))     # 将参数二加入到queue中，形成堆队列
         while queue:
             distance, current = heapq.heappop(queue)
             if current in visited:
