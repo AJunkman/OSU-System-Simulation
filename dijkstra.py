@@ -55,20 +55,3 @@ class Graph(object):
                     heapq.heappush(queue, (dist[end], end))
         return dist, previous, complete_route
 
-
-if __name__ == '__main__':
-    g = Graph()
-    nodes = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6']
-    path = {'r1': [('r2', 4), ('r4', 1), ('r5', 1)],
-            'r2': [('r1', 1), ('r3', 1)],
-            'r3': [('r2', 1), ('r4', 1), ('r6', 1)],
-            'r4': [('r1', 1), ('r3', 1)],
-            'r5': [('r1', 1)]}
-
-    for rtr in path:
-        for adj in path[rtr]:
-            g.add_e(rtr, adj[0], adj[1])
-    dist, prev, cr = g.s_path(nodes[0])
-    print(cr)
-    # print(dist, prev)
-

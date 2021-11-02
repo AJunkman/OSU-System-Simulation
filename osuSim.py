@@ -1,5 +1,5 @@
 import sys
-sys.path.append(r'/home/osu-sim/share/osu-sim')
+sys.path.append(r'/home/osu-sim/share/OsuSystemSimulation')
 import argparse
 import socket
 import time
@@ -20,7 +20,7 @@ def log(msg):
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 DATE_FORMAT = "%Y/%m/%d %H:%M:%S %p"
 logging.getLogger('asyncio').setLevel(logging.ERROR)
-logging.basicConfig(filename='log/r1.log', level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
+logging.basicConfig(filename='log/sim.log', level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
 
 # 重写Thread中的方法，实现多定时任务不间断执行
 class RepeatingTimer(Thread):
@@ -52,7 +52,7 @@ class RxProtocol(asyncio.Protocol):
     def data_received(self, data):
         packet = eval(data.decode())
         # log('Data received: %s '%(packet))
-        logging.info('Data received: %s '%(packet))
+        logging.info('%s-Received data: %s '%(self.osu._hostname, packet))
         self.transport.close()
         # todo
         # 测试用代码，正式服应删除以下代码
@@ -66,7 +66,7 @@ class RxProtocol(asyncio.Protocol):
         if 'seen' in packet.keys():
             neighbor_id = packet['osu_id']
             # log('Seen %s' % (neighbor_id, ))
-            logging.info('Seen %s' % (neighbor_id, ))
+            logging.info('%s-Seen %s' % (self.osu._hostname, neighbor_id, ))
             # Reset Dead timer
             if neighbor_id in self.osu._timers.keys():
                 self.osu._timers[neighbor_id].stop()
@@ -84,7 +84,7 @@ class RxProtocol(asyncio.Protocol):
                 if packets.adv_osu == self.osu._hostname:
                     self.osu._advertise()
                 else:
-                    logging.info('Received LSA of %s via %s and merged to the LSDB' % (packets.adv_osu, self.iface_name))
+                    logging.info('%s-Received LSA of %s via %s and merged to the LSDB' % (self.osu._hostname, packets.adv_osu, self.iface_name))
                     self.osu._flood(packets, self.iface_name)
                     self.osu._update_routing_table()
             elif packets.adv_osu == self.osu._hostname and packets.seq_no == 1:
@@ -99,7 +99,7 @@ class TxProtocol(asyncio.Protocol):
         self.on_con_lost = on_con_lost
     def connection_made(self, transport):
         transport.write(self.message.encode())
-        logging.info('Data sent: %s '%(self.message))
+        # logging.info('Data sent: %s '%(self.message))
     def connection_lost(self, exc):
         self.on_con_lost.set_result(True)
 
@@ -171,7 +171,7 @@ class OSU(object):
     def _update_lsdb(self):
         flushed = self._lsdb.update()
         if flushed:
-            logging.info('LSA(s) of %s reached MaxAge and was/were flushed from the LSDB' % (', '.join(flushed), ))
+            logging.info('%s-LSA(s) of %s reached MaxAge and was/were flushed from the LSDB' % (self._hostname, ', '.join(flushed), ))
 
     def _refresh_lsa(self):
         if self._hostname in self._lsdb:
@@ -189,13 +189,13 @@ class OSU(object):
                 self._sync_lsdb(neighbor_id)
 
     def _update_routing_table(self):
-        logging.info('Recalculating shortest paths and updating routing table')
+        logging.info('%s-Recalculating shortest paths and updating routing table'%(self._hostname,))
         # 清除当前路由表内容
         # 计算当前主机最短路径
         self._table.clear()
         paths, route = self._lsdb.get_shortest_paths(self._hostname)
-        logging.info('{} - completed paths: {}'.format(self._hostname, route))
-        logging.info('shortest_paths: %s'%(paths))
+        logging.info('%s-Full paths: %s'%(self._hostname, route))
+        logging.info('%s-The next_hop in the shortest path: %s'%(self._hostname, paths))
         if not paths:
             return
         networks = {}
@@ -237,15 +237,15 @@ class OSU(object):
         del self._timers[neighbor_id]
         del self._neighbors[neighbor_id]
         del self._seen[neighbor_id]
-        logging.info(' '.join([neighbor_id, 'is down']))
+        logging.info('%s-%s is down'%(self._hostname, neighbor_id))
         self._advertise()
 
     def _flood(self, packet, source_iface=None):
         # 向其他接口泛洪接收到的数据包
         if packet.adv_osu == self._hostname:
-            logging.info('Flooding own LSA')
+            logging.info('%s-Flooding own LSA'%(self._hostname,))
         else:
-            logging.info('Flooding LSA of %s' % (packet.adv_osu, ))
+            logging.info('%s-Flooding LSA of %s' % (self._hostname, packet.adv_osu, ))
         interfaces = []
         for data in self._neighbors.values():
             interfaces.append(data[0])
@@ -307,10 +307,10 @@ class OSU(object):
     def _sync_lsdb(self, neighbor_id):
         topology_changed = (neighbor_id not in self._neighbors)
         if topology_changed:
-            logging.info('Adjacency established with %s' % (neighbor_id, ))
+            logging.info('%s-Adjacency established with %s' % (self._hostname, neighbor_id, ))
         self._neighbors[neighbor_id] = self._seen[neighbor_id]
         if self._hostname not in self._lsdb:
-            logging.info('Creating initial LSA')
+            logging.info('%s-Creating initial LSA'%(self._hostname,))
             self._advertise()
         elif topology_changed:
             self._advertise()
@@ -444,7 +444,7 @@ class OSU(object):
                             pass
         else:
             # 最后一跳，说明连接创建成功
-            logging.info("The %s connection between %s and %s is successfully created"%(pathResvMsg.dataSize, pathResvMsg.dst_ip, pathResvMsg.src_ip,))
+            logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, pathResvMsg.dataSize, pathResvMsg.dst_ip, pathResvMsg.src_ip,))
         # 资源变化，通告LSA消息
         self._advertise()
 
@@ -465,7 +465,6 @@ class Interface():
         self.av_delay = av_delay
         self.connNum = 0
         self.connection = {}
-        logging.info('%s up' % (self.name, ))
 
     def transmit(self, packet):
         # 通过接口发送数据包
@@ -514,6 +513,7 @@ def sim_run():
         port = int(cp.get(iface, 'port'))
         try:
             osu.iface_create(name, bandwidth, port)
+            logging.info('%s-%s up' % (osu._hostname, name, ))
         except socket.error:
             sys.exit(1)
         # 配置接口

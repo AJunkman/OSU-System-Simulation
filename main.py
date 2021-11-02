@@ -5,7 +5,7 @@ threadNum = 5
 nums = [1, 2, 3, 4, 5]
 def start(str):
     print('osuSim%s starting...'%(str))
-    os.system('python3 osuSim.py -c r%s.cfg'%(str))
+    os.system('python3 osuSim.py -c osu%s.cfg'%(str))
 
 pool = ThreadPool(threadNum)
 pool.map(start, nums)
