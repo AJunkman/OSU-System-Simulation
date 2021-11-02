@@ -1,8 +1,5 @@
 
 
-TOS = '08'
-RATE = '6000000'
-
 
 class PathMsg:
     def __init__(self, src_ip, dst_ip, dataSize):

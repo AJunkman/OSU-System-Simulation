@@ -359,7 +359,8 @@ class OSU(object):
         # 判断path消息中的路由表是否为空
         # 为空说明当前节点为源节点，则首先需要获取最短路径
         if not pathMsg.route:
-            path, pathMsg.route = self._lsdb.get_shortest_paths(self._hostname)
+            path, route = self._lsdb.get_shortest_paths(self._hostname)
+            pathMsg.route = route[pathMsg.dst_ip]
         # 获取当前设备在路径表中的索引值，减1是上一跳地址索引值，加1后是下一跳地址索引值
         current_hop = pathMsg.route.index(self._hostname)
         prv_hop = pathMsg.route[current_hop-1]
