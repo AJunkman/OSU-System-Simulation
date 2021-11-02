@@ -467,7 +467,7 @@ class Interface():
         self.connNum = 0
         self.connection = {}
 
-        self.monitor_port_thread()
+        # self.monitor_port_thread()
 
     def transmit(self, packet):
         # 通过接口发送数据包
