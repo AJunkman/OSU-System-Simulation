@@ -193,8 +193,8 @@ class OSU(object):
         # 清除当前路由表内容
         # 计算当前主机最短路径
         self._table.clear()
-        paths = self._lsdb.get_shortest_paths(self._hostname)
-        logging.info('shortest_paths: %s'%(paths))
+        paths, route = self._lsdb.get_shortest_paths(self._hostname)
+        logging.info('shortest_paths: %s'%(route))
         if not paths:
             return
         networks = {}
@@ -359,7 +359,7 @@ class OSU(object):
         # 判断path消息中的路由表是否为空
         # 为空说明当前节点为源节点，则首先需要获取最短路径
         if not pathMsg.route:
-            pathMsg.route = self._lsdb.get_shortest_paths(self._hostname)
+            path, pathMsg.route = self._lsdb.get_shortest_paths(self._hostname)
         # 获取当前设备在路径表中的索引值，减1是上一跳地址索引值，加1后是下一跳地址索引值
         current_hop = pathMsg.route.index(self._hostname)
         prv_hop = pathMsg.route[current_hop-1]
