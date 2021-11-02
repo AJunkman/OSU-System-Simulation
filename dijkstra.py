@@ -50,7 +50,7 @@ class Graph(object):
                         # print(complete_route)
                         complete_route[end] = [current]
                         if current in complete_route:
-                            complete_route[end] += complete_route[current]
+                            complete_route[end] = complete_route[current] + complete_route[end]
                 if end not in dist or relaxed < dist[end]:
                     previous[end] = current
                     dist[end] = relaxed
@@ -61,7 +61,7 @@ class Graph(object):
 if __name__ == '__main__':
     g = Graph()
     nodes = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6']
-    path = {'r1': [('r2', 1), ('r4', 1), ('r5', 1)],
+    path = {'r1': [('r2', 4), ('r4', 1), ('r5', 1)],
             'r2': [('r1', 1), ('r3', 1)],
             'r3': [('r2', 1), ('r4', 1), ('r6', 1)],
             'r4': [('r1', 1), ('r3', 1)],
