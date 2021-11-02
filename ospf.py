@@ -142,6 +142,7 @@ class Database(dict):
             nodes.remove(osu_id)
         # Find a shortest path from osu_id to dest
         dist, prev, route = g.s_path(osu_id)
+
         for dest in nodes:
             # Trace the path back using the prev array.
             path = []

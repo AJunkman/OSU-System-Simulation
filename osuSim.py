@@ -194,7 +194,8 @@ class OSU(object):
         # 计算当前主机最短路径
         self._table.clear()
         paths, route = self._lsdb.get_shortest_paths(self._hostname)
-        logging.info('shortest_paths: %s'%(route))
+        logging.info('{} - completed paths: {}'.format(self._hostname, route))
+        logging.info('shortest_paths: %s'%(paths))
         if not paths:
             return
         networks = {}
