@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append(r'/home/osu-sim/share/osu-sim')
 import socket
 import time
@@ -9,6 +10,7 @@ import threading
 from threading import *
 import logging
 import ospf
+import rsvp
 
 def log(msg):
     print('%s    %s' % (time.ctime().split()[3], msg))
@@ -161,7 +163,7 @@ class OSU(object):
     def _init_timers(self):
         self._dead_timer = None
         self._timers = {}
-        self._timers['lsdb'] = mktimer(ospf.AGE_INTERVAL, self._update_lsdb)
+        self._timers['lsdb'] = mktimer(ospf.aGE_INTERVAL, self._update_lsdb)
         self._timers['refresh_lsa'] = mktimer(ospf.LS_REFRESH_TIME, self._refresh_lsa)
         self._timers['hello'] = mktimer(ospf.HELLO_INTERVAL, self._hello)
 
@@ -351,6 +353,100 @@ class OSU(object):
             t.daemon = True
             t.start()
 
+
+    # 处理pathMsg，向下游沿途保存路径状态
+    def _path(self, pathMsg):
+        # 判断path消息中的路由表是否为空
+        # 为空说明当前节点为源节点，则首先需要获取最短路径
+        if not pathMsg.route:
+            pathMsg.route = self._lsdb.get_shortest_paths(self._hostname)
+        # 获取当前设备在路径表中的索引值，减1是上一跳地址索引值，加1后是下一跳地址索引值
+        current_hop = pathMsg.route.index(self._hostname)
+        prv_hop = pathMsg.route[current_hop-1]
+        next_hop = pathMsg.route[current_hop+1]
+        # 判断是不是第一跳，不是第一跳
+        if pathMsg.src_ip != self._hostname:
+            # 循环遍历当前设备所有接口，找出与上一条连接的接口
+            for pre_iface in self._interfaces.values():
+                if prv_hop == pre_iface.link:
+                    # 检查输入端口的资源是否够用
+                    if pathMsg.dataSize > pre_iface.rsv_bw:
+                        # 此处应当返回资源不足，连接创建失败的消息，后续根据PathErrorMsg补充
+                        pass
+        # 判断是不是最后一跳，不是最后一跳
+        if pathMsg.dst_ip != self._hostname:
+            seen = list(self._seen.keys())
+            if next_hop in seen:
+                for next_iface in self._interfaces.values():
+                    if next_hop == next_iface.link:
+                        # 检查输出端口的资源是否够用
+                        if pathMsg.dataSize < next_iface.rsv_bw:
+                            # 向下一跳发送pathMsg
+                            iface.transmit(pathMsg)
+                        else:
+                            # 此处应当返回资源不足，连接创建失败的消息，后续根据PathErrorMsg补充
+                            pass
+        # 是最后一跳，触发_pathResv方法，开始向上游逐一回复pathResvMsg
+        else:
+            # 封装pathResvMsg，逆着回发消息，源地址和目的地址调换位置赋值
+            pathResvMsg = rsvp.PathResvMsg(pathMsg.dst_ip, pathMsg.src_ip, pathMsg.dataSize)
+            # 原来的路径应当逆序赋值给pathResvMsg中的路由
+            pathResvMsg.route = pathMsg.route.reverse()
+            self._pathResv(pathResvMsg)
+    
+    # 回复pathResvMsg，向上游沿途预留资源
+    def _pathResv(self, pathResvMsg):
+        current_hop = pathResvMsg.route.index(self._hostname)
+        prv_hop = pathResvMsg.route[current_hop-1]
+        next_hop = pathResvMsg.route[current_hop+1]
+        if pathResvMsg.src_ip != self._hostname:
+            # 循环遍历当前设备所有接口，找出与上一条连接的接口
+            for pre_iface in self._interfaces.values():
+                if prv_hop == pre_iface.link:
+                    # 这里有疑问，如果再次检查资源是否可用，那就和pathMsg中重复了
+                    # 如果不检查的话，当前的资源可能被其他连接抢占，无法创建连接
+                    # 被抢占资源无法创建连接的话，就会触发pathResvMsgErr消息
+                    if pathResvMsg.dataSize < pre_iface.rsv_bw:
+                        # 资源可用，将即将创建的连接保存在interface中
+                        # 这一点在rsvp协议中可能没有，提到了rsvp中保存路径状态的功能
+                        conn = Connection(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.dataSize, pathResvMsg.route)
+                        # 生成一个可表示该连接的唯一Key值，目前用各属性拼接起来方法标识，后续可考虑更好的方法
+                        connKey = pathResvMsg.src_ip + pathResvMsg.dst_ip + str(pathResvMsg.dataSize)
+                        pre_iface.connection[connKey] = conn
+                        # 预留资源，可用带宽减少
+                        pre_iface.rsv_bw = pre_iface.rsv_bw - pathResvMsg.dataSize
+                        # 不可用带宽增加
+                        pre_iface.unrsv_bw = pre_iface.unrsv_bw + pathResvMsg.dataSize
+                        # 端口创建的连接数增加
+                        pre_iface.connNum += 1
+                    else:
+                        # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
+                        pass
+        # 判断是不是最后一跳，不是最后一跳
+        if pathResvMsg.dst_ip != self._hostname:
+            seen = list(self._seen.keys())
+            if next_hop in seen:
+                for next_iface in self._interfaces.values():
+                    if next_hop == next_iface.link:
+                        if pathResvMsg.dataSize < next_iface.rsv_bw:
+                            conn = Connection(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.dataSize, pathResvMsg.route)
+                            connKey = pathResvMsg.src_ip + pathResvMsg.dst_ip + str(pathResvMsg.dataSize)
+                            pre_iface.connection[connKey] = conn
+                            next_iface.rsv_bw = next_iface.rsv_bw - pathResvMsg.dataSize
+                            next_iface.unrsv_bw = next_iface.unrsv_bw + pathResvMsg.dataSize
+                            next_iface.connNum += 1
+                            # 向下一跳发送pathMsg
+                            next_iface.transmit(pathResvMsg)
+                        else:
+                            # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
+                            pass
+        else:
+            # 最后一跳，说明连接创建成功
+            logging.info("The %s connection between %s and %s is successfully created"%(pathResvMsg.dataSize, pathResvMsg.dst_ip, pathResvMsg.src_ip,))
+        # 资源变化，通告LSA消息
+        self._advertise()
+
+
 class Interface():
     # OSU接口
     def __init__(self, name, bandwidth, port, osu, av_delay=None):
@@ -366,6 +462,8 @@ class Interface():
         self.rsv_bw = bandwidth
         self.unrsv_bw = '0'
         self.av_delay = av_delay
+        self.connNum = 0
+        self.connection = {}
         logging.info('%s up' % (self.name, ))
     
     def transmit(self, packet):
@@ -374,6 +472,13 @@ class Interface():
         t = threading.Thread(target=IfaceTx, args=(thread_loop,self.remote_end_host, self.remote_end_port, packet,))
         t.daemon = True
         t.start()
+
+class Connection():
+    def __init__(self, src_ip, dst_ip, bandWidth, path):
+        self.src_ip = src_ip
+        self.dst_ip = dst_ip
+        self.bandWidth = bandWidth
+        self.path = path
 
 if __name__ == '__main__':
     AdjList = {}
