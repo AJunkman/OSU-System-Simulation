@@ -1,4 +1,5 @@
 import heapq
+import pdb
 from collections import defaultdict
 
 
@@ -28,11 +29,12 @@ class Graph(object):
         返回从源和数组到每个顶点的距离，数组表示在索引 i 处，在访问节点 i 之前访问过的节点。
         形式 (dist, previous)。
         """
-        dist = {src: 0}
-        visited = {}
-        previous = {}
+        dist = {src: 0}     # 去往各个目的地所需代价
+        visited = {}        # 已遍历路由器
+        previous = {}       # 去往各个目的地的下一跳路由器
+        complete_route = {} # 记录去往各个节点的全路径，{'end': [path]}格式
         queue = []
-        heapq.heappush(queue, (dist[src], src))     # 将参数二加入到queue中，形成堆队列
+        heapq.heappush(queue, (dist[src], src))     # 将(累计代价，目的地)加入到queue中，形成堆队列
         while queue:
             distance, current = heapq.heappop(queue)
             if current in visited:
@@ -42,8 +44,33 @@ class Graph(object):
             for edge in self.adj[current]:
                 relaxed = dist[current] + edge.weight
                 end = edge.end
+                if end not in complete_route or relaxed < dist[end]:
+                    if end != src:
+                        # print(edge.start, edge.end, relaxed)
+                        # print(complete_route)
+                        complete_route[end] = [current]
+                        if current in complete_route:
+                            complete_route[end] += complete_route[current]
                 if end not in dist or relaxed < dist[end]:
                     previous[end] = current
                     dist[end] = relaxed
-                    heapq.heappush(queue, (dist[end],end))
-        return dist, previous
+                    heapq.heappush(queue, (dist[end], end))
+        return dist, previous, complete_route
+
+
+if __name__ == '__main__':
+    g = Graph()
+    nodes = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6']
+    path = {'r1': [('r2', 1), ('r4', 1), ('r5', 1)],
+            'r2': [('r1', 1), ('r3', 1)],
+            'r3': [('r2', 1), ('r4', 1), ('r6', 1)],
+            'r4': [('r1', 1), ('r3', 1)],
+            'r5': [('r1', 1)]}
+
+    for rtr in path:
+        for adj in path[rtr]:
+            g.add_e(rtr, adj[0], adj[1])
+    dist, prev, cr = g.s_path(nodes[0])
+    print(cr)
+    # print(dist, prev)
+
