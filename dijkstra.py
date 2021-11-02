@@ -46,11 +46,9 @@ class Graph(object):
                 end = edge.end
                 if end not in complete_route or relaxed < dist[end]:
                     if end != src:
-                        # print(edge.start, edge.end, relaxed)
-                        # print(complete_route)
-                        complete_route[end] = [current]
+                        complete_route[end] = [current, end]
                         if current in complete_route:
-                            complete_route[end] = complete_route[current] + complete_route[end]
+                            complete_route[end] = complete_route[current] + complete_route[end][1:]
                 if end not in dist or relaxed < dist[end]:
                     previous[end] = current
                     dist[end] = relaxed
