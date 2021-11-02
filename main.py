@@ -11,5 +11,3 @@ pool = ThreadPool(threadNum)
 pool.map(start, nums)
 pool.close()
 pool.join()
-
-test()
