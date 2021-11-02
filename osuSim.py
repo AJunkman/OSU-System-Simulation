@@ -462,9 +462,12 @@ class Interface():
         self.remote_end_port = None
         self.rsv_bw = bandwidth
         self.unrsv_bw = '0'
+        self.bd_change_rng = 20
         self.av_delay = av_delay
         self.connNum = 0
         self.connection = {}
+
+        self.monitor_port_thread()
 
     def transmit(self, packet):
         # 通过接口发送数据包
@@ -472,6 +475,27 @@ class Interface():
         t = threading.Thread(target=IfaceTx, args=(thread_loop,self.remote_end_host, self.remote_end_port, packet,))
         t.daemon = True
         t.start()
+
+    def change_port_bd(self):
+        while True:
+            time.sleep(5)
+            rsv_bd = int(self.rsv_bw)
+            change_bd = random.randint(0, 10)
+            self.rsv_bw = str(rsv_bd - change_bd) if rsv_bd - change_bd >= 0 else self.bandwidth
+
+    def monitor_port_bd(self):
+        current_bd = int(self.rsv_bw)
+        while True:
+            if abs(current_bd - int(self.rsv_bw)) > self.bd_change_rng:
+                self.osu._advertise()
+
+    def monitor_port_thread(self):
+        change_thread = threading.Thread(target=self.change_port_bd)
+        monitor_thread = threading.Thread(target=self.monitor_port_bd)
+        change_thread.start()
+        monitor_thread.start()
+
+
 
 class Connection():
     def __init__(self, src_ip, dst_ip, bandWidth, path):
