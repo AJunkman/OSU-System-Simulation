@@ -394,7 +394,7 @@ class OSU(object):
             pathResvMsg.route = pathMsg.route.reverse()
             self._pathResv(pathResvMsg)
     
-    # 回复pathResvMsg，向上游沿途预留资源
+    # 处理pathResvMsg，向上游沿途预留资源
     def _pathResv(self, pathResvMsg):
         current_hop = pathResvMsg.route.index(self._hostname)
         prv_hop = pathResvMsg.route[current_hop-1]
