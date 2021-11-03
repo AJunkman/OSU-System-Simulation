@@ -1,4 +1,6 @@
 import sys
+
+from rsvp import PathMsg
 sys.path.append(r'/home/osu-sim/share/OsuSystemSimulation')
 import argparse
 import socket
@@ -461,7 +463,7 @@ class Interface():
         self.remote_end_host = None
         self.remote_end_port = None
         self.rsv_bw = bandwidth
-        self.unrsv_bw = '0'
+        self.unrsv_bw = 0
         self.av_delay = av_delay
         self.connNum = 0
         self.connection = {}
@@ -509,7 +511,7 @@ def sim_run():
     for iface in ifaces:
         # 创建接口
         name = iface.split(':')[1]
-        bandwidth = cp.get(iface, 'bandwidth')
+        bandwidth = int(cp.get(iface, 'bandwidth'))
         port = int(cp.get(iface, 'port'))
         try:
             osu.iface_create(name, bandwidth, port)
