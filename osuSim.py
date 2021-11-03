@@ -54,14 +54,6 @@ class RxProtocol(asyncio.Protocol):
         # log('Data received: %s '%(packet))
         logging.info('%s-Received data: %s '%(self.osu._hostname, packet))
         self.transport.close()
-        # todo
-        # 测试用代码，正式服应删除以下代码
-        # 模拟链路建立过程，测试TE LSA是否可以正确泛洪链路信息
-        iface = self.osu._interfaces[self.iface_name]
-        if int(iface.rsv_bw) >= 20:
-            conn_bw = random.randint(1, 20)
-            iface.rsv_bw = str(int(iface.rsv_bw) - conn_bw)
-            iface.unrsv_bw = str(int(iface.unrsv_bw) + conn_bw)
         # Hello包处理
         if 'seen' in packet.keys():
             neighbor_id = packet['osu_id']
@@ -467,7 +459,7 @@ class Interface():
         self.connNum = 0
         self.connection = {}
 
-        # self.monitor_port_thread()
+        self.monitor_port_thread()
 
     def transmit(self, packet):
         # 通过接口发送数据包
@@ -476,17 +468,22 @@ class Interface():
         t.daemon = True
         t.start()
 
+    # 在没有RSVP的条件下，随机修改端口带宽
     def change_port_bd(self):
+        # time.sleep(60)
         while True:
-            time.sleep(5)
-            rsv_bd = int(self.rsv_bw)
+            time_sleep = random.randint(1, 10)
+            time.sleep(time_sleep)
+            rsv_bd = int(self.bandwidth)
             change_bd = random.randint(0, 10)
-            self.rsv_bw = str(rsv_bd - change_bd) if rsv_bd - change_bd >= 0 else self.bandwidth
+            self.bandwidth = str(rsv_bd - change_bd) if rsv_bd - change_bd >= 0 else '10000'
 
     def monitor_port_bd(self):
-        current_bd = int(self.rsv_bw)
+        current_bd = int(self.bandwidth)
         while True:
-            if abs(current_bd - int(self.rsv_bw)) > self.bd_change_rng:
+            if abs(current_bd - int(self.bandwidth)) > self.bd_change_rng:
+                current_bd = int(self.bandwidth)
+                logging.info('{}-{} has triggered the flooding, and the bandwidth remained {}.'.format(self.osu._hostname, self.name, self.bandwidth))
                 self.osu._advertise()
 
     def monitor_port_thread(self):
@@ -494,7 +491,6 @@ class Interface():
         monitor_thread = threading.Thread(target=self.monitor_port_bd)
         change_thread.start()
         monitor_thread.start()
-
 
 
 class Connection():
