@@ -1,4 +1,5 @@
 import sys
+import pdb
 
 from rsvp import PathMsg
 sys.path.append(r'/home/osu-sim/share/OsuSystemSimulation')
@@ -14,6 +15,8 @@ import logging
 import ospf
 import rsvp
 import os
+import ast
+import flowGenerator
 
 def log(msg):
     print('%s    %s' % (time.ctime().split()[3], msg))
@@ -22,7 +25,7 @@ def log(msg):
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
 DATE_FORMAT = "%Y/%m/%d %H:%M:%S %p"
 logging.getLogger('asyncio').setLevel(logging.ERROR)
-logging.basicConfig(filename='log/sim.log', level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
+logging.basicConfig(filename='sim.log', level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
 
 # 重写Thread中的方法，实现多定时任务不间断执行
 class RepeatingTimer(Thread):
@@ -56,14 +59,6 @@ class RxProtocol(asyncio.Protocol):
         # log('Data received: %s '%(packet))
         logging.info('%s-Received data: %s '%(self.osu._hostname, packet))
         self.transport.close()
-        # todo
-        # 测试用代码，正式服应删除以下代码
-        # 模拟链路建立过程，测试TE LSA是否可以正确泛洪链路信息
-        iface = self.osu._interfaces[self.iface_name]
-        if int(iface.rsv_bw) >= 20:
-            conn_bw = random.randint(1, 20)
-            iface.rsv_bw = str(int(iface.rsv_bw) - conn_bw)
-            iface.unrsv_bw = str(int(iface.unrsv_bw) + conn_bw)
         # Hello包处理
         if 'seen' in packet.keys():
             neighbor_id = packet['osu_id']
@@ -91,6 +86,19 @@ class RxProtocol(asyncio.Protocol):
                     self.osu._update_routing_table()
             elif packets.adv_osu == self.osu._hostname and packets.seq_no == 1:
                 self.osu._advertise()
+        elif 'msg_type' in packet.keys():
+            # 判断是PathMsg
+            if packet['msg_type'] == '0x01':
+                pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['dataSize'])
+                pathMsg.route = packet['route']
+                self.osu._path(pathMsg)
+            # 判断是PathResvMsg
+            elif packet['msg_type'] == '0x02':
+                pathResvMsg = rsvp.PathResvMsg(packet['src_ip'], packet['dst_ip'], packet['dataSize'])
+                pathResvMsg.route = packet['route']
+                self.osu._pathResv(pathResvMsg)
+            else:
+                pass
         else:
             pass
 
@@ -152,6 +160,7 @@ class OSU(object):
         self._interfaces = {}
         self._neighbors = {}
         self._seen = {}
+        self.shortestPath = {}
         self._init_timers()
 
     @staticmethod
@@ -169,6 +178,7 @@ class OSU(object):
         self._timers['lsdb'] = mktimer(ospf.AGE_INTERVAL, self._update_lsdb)
         self._timers['refresh_lsa'] = mktimer(ospf.LS_REFRESH_TIME, self._refresh_lsa)
         self._timers['hello'] = mktimer(ospf.HELLO_INTERVAL, self._hello)
+        self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
 
     def _update_lsdb(self):
         flushed = self._lsdb.update()
@@ -195,9 +205,9 @@ class OSU(object):
         # 清除当前路由表内容
         # 计算当前主机最短路径
         self._table.clear()
-        paths, route = self._lsdb.get_shortest_paths(self._hostname)
-        logging.info('%s-Full paths: %s'%(self._hostname, route))
+        paths, self.shortestPath = self._lsdb.get_shortest_paths(self._hostname)
         logging.info('%s-The next_hop in the shortest path: %s'%(self._hostname, paths))
+        logging.info('%s-Full paths: %s'%(self._hostname, self.shortestPath))
         if not paths:
             return
         networks = {}
@@ -356,21 +366,28 @@ class OSU(object):
             t = threading.Thread(target=self.IfaceRx, args=(thread_loop,name,))
             t.daemon = True
             t.start()
+
+    def _createConnTest(self):
+        for dst in self.shortestPath.keys():
+            dataSize = random.randint(2, 10000)
+            pathMsg = rsvp.PathMsg(self._hostname, dst, dataSize)
+            pathMsg.route = self.shortestPath[dst]
+            self._path(pathMsg)
+
     
-        # 处理pathMsg，向下游沿途保存路径状态
+    # 处理pathMsg，向下游沿途保存路径状态
     def _path(self, pathMsg):
         # 判断path消息中的路由表是否为空
         # 为空说明当前节点为源节点，则首先需要获取最短路径
-        if not pathMsg.route:
-            path, route = self._lsdb.get_shortest_paths(self._hostname)
-            pathMsg.route = route[pathMsg.dst_ip]
-        # 获取当前设备在路径表中的索引值，减1是上一跳地址索引值，加1后是下一跳地址索引值
-        current_hop = pathMsg.route.index(self._hostname)
-        prv_hop = pathMsg.route[current_hop-1]
-        next_hop = pathMsg.route[current_hop+1]
+        # if not pathMsg.route:
+        #     path, route = self._lsdb.get_shortest_paths(self._hostname)
+        #     pathMsg.route.set_shortest_path(route[pathMsg.dst_ip])
         # 判断是不是第一跳，不是第一跳
+        routeObject = rsvp.RouteObject(pathMsg.src_ip, pathMsg.dst_ip, pathMsg.route)
+        # routeObject.set_shortest_path(pathMsg.route)
         if pathMsg.src_ip != self._hostname:
             # 循环遍历当前设备所有接口，找出与上一条连接的接口
+            prv_hop = routeObject.get_prev_hop(self._hostname)
             for pre_iface in self._interfaces.values():
                 if prv_hop == pre_iface.link:
                     # 检查输入端口的资源是否够用
@@ -379,6 +396,7 @@ class OSU(object):
                         pass
         # 判断是不是最后一跳，不是最后一跳
         if pathMsg.dst_ip != self._hostname:
+            next_hop = routeObject.get_next_hop(self._hostname)
             seen = list(self._seen.keys())
             if next_hop in seen:
                 for next_iface in self._interfaces.values():
@@ -395,50 +413,35 @@ class OSU(object):
             # 封装pathResvMsg，逆着回发消息，源地址和目的地址调换位置赋值
             pathResvMsg = rsvp.PathResvMsg(pathMsg.dst_ip, pathMsg.src_ip, pathMsg.dataSize)
             # 原来的路径应当逆序赋值给pathResvMsg中的路由
-            pathResvMsg.route = pathMsg.route.reverse()
+            pathResvMsg.route = pathMsg.route
+            pathResvMsg.route.reverse()
             self._pathResv(pathResvMsg)
 
     # 处理pathResvMsg，向上游沿途预留资源
     def _pathResv(self, pathResvMsg):
-        current_hop = pathResvMsg.route.index(self._hostname)
-        prv_hop = pathResvMsg.route[current_hop-1]
-        next_hop = pathResvMsg.route[current_hop+1]
+        routeObject = rsvp.RouteObject(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.route)
+        # routeObject.set_shortest_path(pathResvMsg.route)
         if pathResvMsg.src_ip != self._hostname:
+            prv_hop = routeObject.get_prev_hop(self._hostname)
             # 循环遍历当前设备所有接口，找出与上一条连接的接口
             for pre_iface in self._interfaces.values():
                 if prv_hop == pre_iface.link:
-                    # 这里有疑问，如果再次检查资源是否可用，那就和pathMsg中重复了
-                    # 如果不检查的话，当前的资源可能被其他连接抢占，无法创建连接
-                    # 被抢占资源无法创建连接的话，就会触发pathResvMsgErr消息
                     if pathResvMsg.dataSize < pre_iface.rsv_bw:
-                        # 资源可用，将即将创建的连接保存在interface中
-                        # 这一点在rsvp协议中可能没有，提到了rsvp中保存路径状态的功能
-                        conn = Connection(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.dataSize, pathResvMsg.route)
-                        # 生成一个可表示该连接的唯一Key值，目前用各属性拼接起来方法标识，后续可考虑更好的方法
-                        connKey = pathResvMsg.src_ip + pathResvMsg.dst_ip + str(pathResvMsg.dataSize)
-                        pre_iface.connection[connKey] = conn
-                        # 预留资源，可用带宽减少
-                        pre_iface.rsv_bw = pre_iface.rsv_bw - pathResvMsg.dataSize
-                        # 不可用带宽增加
-                        pre_iface.unrsv_bw = pre_iface.unrsv_bw + pathResvMsg.dataSize
-                        # 端口创建的连接数增加
-                        pre_iface.connNum += 1
+                    # 资源可用，将即将创建的连接保存在interface中
+                        rsvp.Resource.reservation(pre_iface, pathResvMsg)
                     else:
-                        # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
+                    # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
                         pass
         # 判断是不是最后一跳，不是最后一跳
         if pathResvMsg.dst_ip != self._hostname:
+            #pdb.set_trace()
+            next_hop = routeObject.get_next_hop(self._hostname)
             seen = list(self._seen.keys())
             if next_hop in seen:
                 for next_iface in self._interfaces.values():
                     if next_hop == next_iface.link:
                         if pathResvMsg.dataSize < next_iface.rsv_bw:
-                            conn = Connection(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.dataSize, pathResvMsg.route)
-                            connKey = pathResvMsg.src_ip + pathResvMsg.dst_ip + str(pathResvMsg.dataSize)
-                            pre_iface.connection[connKey] = conn
-                            next_iface.rsv_bw = next_iface.rsv_bw - pathResvMsg.dataSize
-                            next_iface.unrsv_bw = next_iface.unrsv_bw + pathResvMsg.dataSize
-                            next_iface.connNum += 1
+                            rsvp.Resource.reservation(next_iface, pathResvMsg)
                             # 向下一跳发送pathMsg
                             next_iface.transmit(pathResvMsg)
                         else:
@@ -446,9 +449,9 @@ class OSU(object):
                             pass
         else:
             # 最后一跳，说明连接创建成功
-            logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, pathResvMsg.dataSize, pathResvMsg.dst_ip, pathResvMsg.src_ip,))
+            logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, pathResvMsg.dataSize, pathResvMsg.src_ip, pathResvMsg.dst_ip,))
         # 资源变化，通告LSA消息
-        self._advertise()
+        # self._advertise()
 
 class Interface():
     # OSU接口
@@ -464,9 +467,11 @@ class Interface():
         self.remote_end_port = None
         self.rsv_bw = bandwidth
         self.unrsv_bw = 0
+        self.bd_change_rng = 20
         self.av_delay = av_delay
         self.connNum = 0
         self.connection = {}
+        # self.monitor_port_thread()
 
     def transmit(self, packet):
         # 通过接口发送数据包
@@ -475,12 +480,29 @@ class Interface():
         t.daemon = True
         t.start()
 
-class Connection():
-    def __init__(self, src_ip, dst_ip, bandWidth, path):
-        self.src_ip = src_ip
-        self.dst_ip = dst_ip
-        self.bandWidth = bandWidth
-        self.path = path
+    # 在没有RSVP的条件下，随机修改端口带宽
+    def change_port_bd(self):
+        time.sleep(60)
+        while True:
+            time_sleep = random.randint(1, 10)
+            time.sleep(time_sleep)
+            rsv_bd = int(self.bandwidth)
+            change_bd = random.randint(0, 10)
+            self.bandwidth = str(rsv_bd - change_bd) if rsv_bd - change_bd >= 0 else '10000'
+
+    def monitor_port_bd(self):
+        current_bd = int(self.bandwidth)
+        while True:
+            if abs(current_bd - int(self.bandwidth)) > self.bd_change_rng:
+                current_bd = int(self.bandwidth)
+                logging.info('%s-%s has triggered the flooding, and the bandwidth remained %s'%(self.osu._hostname, self.name, self.bandwidth))
+                self.osu._advertise()
+
+    def monitor_port_thread(self):
+        change_thread = threading.Thread(target=self.change_port_bd)
+        monitor_thread = threading.Thread(target=self.monitor_port_bd)
+        change_thread.start()
+        monitor_thread.start()
 
 def init_argparser():
     parser = argparse.ArgumentParser()
