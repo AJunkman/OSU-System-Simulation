@@ -11,7 +11,6 @@ class PathMsg:
         self.dst_ip = dst_ip
         self.tos = None
         self.dataSize = dataSize
-        # self.route = RouteObject(src_ip, dst_ip)
         self.route = None
 
 class PathResvMsg:
@@ -21,7 +20,6 @@ class PathResvMsg:
         self.src_ip = src_ip
         self.dst_ip = dst_ip
         self.dataSize = dataSize
-        # self.route = RouteObject(src_ip, dst_ip)
         self.route = None
 
 class RouteObject():
