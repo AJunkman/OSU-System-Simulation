@@ -377,14 +377,8 @@ class OSU(object):
     
     # 处理pathMsg，向下游沿途保存路径状态
     def _path(self, pathMsg):
-        # 判断path消息中的路由表是否为空
-        # 为空说明当前节点为源节点，则首先需要获取最短路径
-        # if not pathMsg.route:
-        #     path, route = self._lsdb.get_shortest_paths(self._hostname)
-        #     pathMsg.route.set_shortest_path(route[pathMsg.dst_ip])
         # 判断是不是第一跳，不是第一跳
         routeObject = rsvp.RouteObject(pathMsg.src_ip, pathMsg.dst_ip, pathMsg.route)
-        # routeObject.set_shortest_path(pathMsg.route)
         if pathMsg.src_ip != self._hostname:
             # 循环遍历当前设备所有接口，找出与上一条连接的接口
             prv_hop = routeObject.get_prev_hop(self._hostname)
