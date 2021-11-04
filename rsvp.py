@@ -54,6 +54,7 @@ class Connection():
         self.bandWidth = bandWidth
         self.path = route
 
+# 资源管理
 class Resource():
 
     def reservation(interface, pathResvMsg):
