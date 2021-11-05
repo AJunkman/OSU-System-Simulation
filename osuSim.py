@@ -1,8 +1,6 @@
+# 系统模块
+import os
 import sys
-import pdb
-
-from rsvp import PathMsg
-sys.path.append(r'/home/osu-sim/share/OsuSystemSimulation')
 import argparse
 import socket
 import time
@@ -10,21 +8,13 @@ import configparser
 import asyncio
 import random
 import threading
-from threading import *
 import logging
+from threading import *
+
+# 项目模块
 import ospf
 import rsvp
-import os
-import ast
 
-def log(msg):
-    print('%s    %s' % (time.ctime().split()[3], msg))
-
-# 自定义日志输出格式
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-DATE_FORMAT = "%Y/%m/%d %H:%M:%S %p"
-logging.getLogger('asyncio').setLevel(logging.ERROR)
-logging.basicConfig(filename='sim.log', level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
 
 # 重写Thread中的方法，实现多定时任务不间断执行
 class RepeatingTimer(Thread):
@@ -503,14 +493,14 @@ def init_argparser():
     return parser
 
 
-def sim_run():
-    arg_parser = init_argparser()
-    args = arg_parser.parse_args()
-    conf_name = args.config
-    if not conf_name:
-        arg_parser.print_help()
-        exit()
-    conf_file_path = os.path.join("topologies", conf_name)
+def sim_run(conf_file_path):
+    # arg_parser = init_argparser()
+    # args = arg_parser.parse_args()
+    # conf_name = args.config
+    # if not conf_name:
+    #     arg_parser.print_help()
+    #     exit()
+    # conf_file_path = os.path.join("topologies", conf_name)
 
     AdjList = {}
     routingT = {}

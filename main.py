@@ -1,13 +1,17 @@
-import os
-from multiprocessing.dummy import Pool as ThreadPool
+import threading
+import logging
+from logging import config
 
-threadNum = 5
+import osuSim
+
+logging.config.fileConfig('logconfig.ini')
+# logging.getLogger('asyncio').setLevel(logging.ERROR)
+
 nums = [1, 2, 3, 4, 5]
-def start(str):
-    print('osuSim%s starting...'%(str))
-    os.system('python3 osuSim.py -c osu%s.cfg'%(str))
+thd = []
+for str in nums:
+    logging.info('osuSim%s starting...'%(str))
+    thd.append(threading.Thread(target=osuSim.sim_run, args=("topologies/osu{}.cfg".format(str),)))
 
-pool = ThreadPool(threadNum)
-pool.map(start, nums)
-pool.close()
-pool.join()
+for t in thd:
+    t.start()
