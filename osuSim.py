@@ -16,7 +16,6 @@ import ospf
 import rsvp
 import os
 import ast
-import flowGenerator
 
 def log(msg):
     print('%s    %s' % (time.ctime().split()[3], msg))
@@ -292,14 +291,14 @@ class OSU(object):
                                  lcl_id=self._hostname,
                                  rmt_id=iface.link,
                                  max_bw=iface.bandwidth,
-                                 max_rsv_bw=iface.rsv_bw,
-                                 max_unrsv_bw=iface.unrsv_bw,
+                                 ava_bw=iface.ava_bw,
+                                 use_bw=iface.use_bw,
                                  av_delay=iface.av_delay)
                 # lth: 更新链路信息
                 else:
                     iface = self._interfaces[iface_name]
-                    lsa.tlv[iface_name]['val']['7'] = iface.rsv_bw
-                    lsa.tlv[iface_name]['val']['8'] = iface.unrsv_bw
+                    lsa.tlv[iface_name]['val']['7'] = iface.ava_bw
+                    lsa.tlv[iface_name]['val']['8'] = iface.use_bw
         else:
             lsa = ospf.LinkStatePacket(self._hostname, 1, 1, networks, {})
             for iface_name in link_enable_ports:
@@ -308,8 +307,8 @@ class OSU(object):
                              lcl_id=self._hostname,
                              rmt_id=iface.link,
                              max_bw=iface.bandwidth,
-                             max_rsv_bw=iface.rsv_bw,
-                             max_unrsv_bw=iface.unrsv_bw,
+                             ava_bw=iface.ava_bw,
+                             use_bw=iface.use_bw,
                              av_delay=iface.av_delay)
         self._lsdb.insert(lsa)
         # 向邻居泛洪 LSA
@@ -385,7 +384,7 @@ class OSU(object):
             for pre_iface in self._interfaces.values():
                 if prv_hop == pre_iface.link:
                     # 检查输入端口的资源是否够用
-                    if pathMsg.dataSize > pre_iface.rsv_bw:
+                    if pathMsg.dataSize > pre_iface.ava_bw:
                         # 此处应当返回资源不足，连接创建失败的消息，后续根据PathErrorMsg补充
                         pass
         # 判断是不是最后一跳，不是最后一跳
@@ -396,7 +395,7 @@ class OSU(object):
                 for next_iface in self._interfaces.values():
                     if next_hop == next_iface.link:
                         # 检查输出端口的资源是否够用
-                        if pathMsg.dataSize < next_iface.rsv_bw:
+                        if pathMsg.dataSize < next_iface.ava_bw:
                             # 向下一跳发送pathMsg
                             next_iface.transmit(pathMsg)
                         else:
@@ -420,7 +419,7 @@ class OSU(object):
             # 循环遍历当前设备所有接口，找出与上一条连接的接口
             for pre_iface in self._interfaces.values():
                 if prv_hop == pre_iface.link:
-                    if pathResvMsg.dataSize < pre_iface.rsv_bw:
+                    if pathResvMsg.dataSize < pre_iface.ava_bw:
                     # 资源可用，将即将创建的连接保存在interface中
                         rsvp.Resource.reservation(pre_iface, pathResvMsg)
                     else:
@@ -434,7 +433,7 @@ class OSU(object):
             if next_hop in seen:
                 for next_iface in self._interfaces.values():
                     if next_hop == next_iface.link:
-                        if pathResvMsg.dataSize < next_iface.rsv_bw:
+                        if pathResvMsg.dataSize < next_iface.ava_bw:
                             rsvp.Resource.reservation(next_iface, pathResvMsg)
                             # 向下一跳发送pathMsg
                             next_iface.transmit(pathResvMsg)
@@ -459,8 +458,8 @@ class Interface():
         self.link = None
         self.remote_end_host = None
         self.remote_end_port = None
-        self.rsv_bw = bandwidth
-        self.unrsv_bw = 0
+        self.ava_bw = bandwidth
+        self.use_bw = 0
         self.bd_change_rng = 20
         self.av_delay = av_delay
         self.connNum = 0

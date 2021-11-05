@@ -36,13 +36,13 @@ class LinkStatePacket(object):
         stat = '\nADV Osu: %s\nAge: %d\nSeq No.: %d\nNetworks: %s\nTLV: %s\n' % (self.adv_osu, self.age, self.seq_no, self.networks, self.tlv)
         return stat
 
-    def init_tlv(self, iface_name, lcl_id, rmt_id, max_bw, max_rsv_bw, max_unrsv_bw, av_delay=None):
+    def init_tlv(self, iface_name, lcl_id, rmt_id, max_bw, ava_bw, use_bw, av_delay=None):
         # 初始化链路tlv
         link_tlv = Link_TLV()
         link_tlv.init_lrrid_tlv(lcl_id, rmt_id)
         link_tlv.init_max_bw_tlv(max_bw)
-        link_tlv.init_max_rsv_bw_tlv(max_rsv_bw)
-        link_tlv.init_max_unrsv_bw_tlv(max_unrsv_bw)
+        link_tlv.init_ava_bw_tlv(ava_bw)
+        link_tlv.init_use_bw_tlv(use_bw)
         link_tlv.init_av_delay(av_delay)
 
         # 将链路tlv赋值到净荷区
@@ -81,15 +81,15 @@ class Link_TLV(TLV):
         # 带宽单位 Byte/s
         self.val['6'] = max_bw
 
-    # 初始化最大可预留带宽子TLV
+    # 初始化可用带宽子TLV
     # 隧道可分配带宽，初值默认为最大带宽
-    def init_max_rsv_bw_tlv(self, max_rsv_bw: float):
-        self.val['7'] = max_rsv_bw
+    def init_ava_bw_tlv(self, ava_bw: float):
+        self.val['32'] = ava_bw
 
-    # 初始化最大未保留带宽子TLV
+    # 初始化占用带宽子TLV
     # 提供给隧道后剩余的带宽，初值默认为最大可预留带宽
-    def init_max_unrsv_bw_tlv(self, max_unrsv_bw: float):
-        self.val['8'] = max_unrsv_bw
+    def init_use_bw_tlv(self, use_bw: float):
+        self.val['33'] = use_bw
 
     # 初始化平均时延子TLV
     def init_av_delay(self, av_delay: float):
