@@ -14,7 +14,6 @@ import ospf
 import rsvp
 import log
 
-
 # 重写Thread中的方法，实现多定时任务不间断执行
 class RepeatingTimer(Thread):
     def __init__(self, interval, callback, args = ()):
