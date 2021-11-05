@@ -487,26 +487,9 @@ class Interface():
         change_thread.start()
         monitor_thread.start()
 
-def init_argparser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", help="the path of the config file")
-    return parser
-
 
 def sim_run(conf_file_path):
-    # arg_parser = init_argparser()
-    # args = arg_parser.parse_args()
-    # conf_name = args.config
-    # if not conf_name:
-    #     arg_parser.print_help()
-    #     exit()
-    # conf_file_path = os.path.join("topologies", conf_name)
-
     AdjList = {}
-    routingT = {}
-    routingTable = []
-    linkState = {}
-    linkStateDb = []
     cp = configparser.ConfigParser()
     cp.read(conf_file_path)
     hostname = cp.get('Local','hostname')
@@ -542,9 +525,4 @@ def sim_run(conf_file_path):
         cols = [name, address, netmask, bandwidth, link]
         for val in cols:
             AdjList.setdefault(cols[0],[]).append(val)
-    # print(AdjList)
     osu.start()
-
-
-if __name__ == '__main__':
-    sim_run()
