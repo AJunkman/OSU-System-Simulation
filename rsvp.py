@@ -2,20 +2,22 @@ import random
 import time
 
 
-CREATE_CONN_INTERVAL = 30 # 30 seconds
+CREATE_CONN_INTERVAL = 15 # 15 seconds
 
 class PathMsg:
     
     def __init__(self, src_ip, dst_ip, dataSize):
         self.msg_type = '0x01'
-        random.seed(time.time())
-        self.lsp_id = random.random()
+        self.lsp_id = None
         self.src_ip = src_ip
         self.dst_ip = dst_ip
         self.tos = None
         self.dataSize = dataSize
         self.route = None
-        self.rsvp_hop = None
+
+    def set_lsp_id(self):
+        random.seed(time.time())
+        self.lsp_id = random.random()
 
 class PathResvMsg:
 
@@ -27,7 +29,47 @@ class PathResvMsg:
         self.dataSize = dataSize
         self.route = None
         self.style = None
-        self.rsvp_hop = None
+
+class PathErrMsg():
+
+    def __init__(self, lsp_id, src_ip, dst_ip, err_msg, route):
+        self.msg_type = '0x03'
+        self.lsp_id = lsp_id
+        self.src_ip = src_ip
+        self.dst_ip = dst_ip
+        self.err_msg = err_msg
+        self.route = route
+
+
+class PathErrMsg():
+
+    def __init__(self, lsp_id, src_ip, dst_ip, err_msg, route):
+        self.msg_type = '0x04'
+        self.lsp_id = lsp_id
+        self.src_ip = src_ip
+        self.dst_ip = dst_ip
+        self.err_msg = err_msg
+        self.route = route
+
+
+class PathTearMsg():
+
+    def __init__(self, lsp_id, src_ip, dst_ip, route):
+        self.msg_type = '0x05'
+        self.lsp_id = lsp_id
+        self.src_ip = src_ip
+        self.dst_ip = dst_ip
+        self.route = route
+
+class ResvTearMsg():
+
+    def __init__(self, lsp_id, src_ip, dst_ip, route):
+        self.msg_type = '0x06'
+        self.lsp_id = lsp_id
+        self.src_ip = src_ip
+        self.dst_ip = dst_ip
+        self.route = route
+
 
 class RouteObject():
 
@@ -57,12 +99,15 @@ class Connection():
         self.path = route
 
 class PSB():
-    def __init__(self, lsp_id, rsvp_hop, interface):
+
+    def __init__(self, lsp_id, prv_hop, interface):
         self.lsp_id = lsp_id
-        self.prv_hop = rsvp_hop
+        self.prv_hop = prv_hop
         self.interface = interface
 
+
 class RSB():
+
     def __init__(self, lsp_id, next_hop, dataSize, interface):
         self.lsp_id = lsp_id
         self.next_hop = next_hop
@@ -70,14 +115,30 @@ class RSB():
         self.interface = interface
 
 
+class State_Block():
+
+    def creatPSB(pathMsg, hop, iface):
+        # 检查端口的资源是否够用
+        if pathMsg.dataSize < iface.ava_bw:
+            # 资源充足，将路径状态信息保存在psb中
+            psb = PSB(pathMsg.lsp_id, hop, iface)
+            iface.psb[pathMsg.lsp_id] = psb
+            return psb
+
+    def creatRSB(pathResvMsg, hop, iface):
+        if pathResvMsg.dataSize < iface.ava_bw and iface.psb[pathResvMsg.lsp_id].prv_hop==hop:
+            # # 资源可用，将资源状态保存在rsb中，并为连接预留资源
+            rsb = RSB(pathResvMsg.lsp_id, hop, pathResvMsg.dataSize, iface)
+            iface.rsb[pathResvMsg.lsp_id] = rsb
+            Resource.reservation(iface, pathResvMsg)
+            return rsb
+
 # 资源管理
 class Resource():
 
     def reservation(interface, pathResvMsg):
         conn = Connection(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.dataSize, pathResvMsg.route)
-        # 生成一个可表示该连接的唯一Key值，目前用各属性拼接起来方法标识，后续可考虑更好的方法
-        connKey = pathResvMsg.src_ip + pathResvMsg.dst_ip + str(pathResvMsg.dataSize)
-        interface.connection[connKey] = conn
+        interface.connection[pathResvMsg.lsp_id] = conn
         # 预留资源，可用带宽减少
         interface.ava_bw = interface.ava_bw - pathResvMsg.dataSize
         # 不可用带宽增加
@@ -86,12 +147,15 @@ class Resource():
         interface.connNum += 1
 
     def release(interface, Msg):
-        connKey = Msg.src_ip + Msg.dst_ip + str(Msg.dataSize)
-        interface.connection.pop(connKey)
+        interface.connection.pop(Msg.lsp_id)
+        interface.rsb.pop(Msg.lsp_id)
         # 释放占用资源，可用带宽增加
         interface.ava_bw = interface.ava_bw + Msg.dataSize
         # 不可用带宽减少
         interface.use_bw = interface.use_bw - Msg.dataSize
+        interface.connNum -= 1
+
+
 
 
 
