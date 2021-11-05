@@ -1,4 +1,5 @@
-
+import random
+import time
 
 
 CREATE_CONN_INTERVAL = 30 # 30 seconds
@@ -7,29 +8,32 @@ class PathMsg:
     
     def __init__(self, src_ip, dst_ip, dataSize):
         self.msg_type = '0x01'
+        random.seed(time.time())
+        self.lsp_id = random.random()
         self.src_ip = src_ip
         self.dst_ip = dst_ip
         self.tos = None
         self.dataSize = dataSize
         self.route = None
+        self.rsvp_hop = None
 
 class PathResvMsg:
 
-    def __init__(self, src_ip, dst_ip, dataSize):
+    def __init__(self, lsp_id, src_ip, dst_ip, dataSize):
         self.msg_type = '0x02'
+        self.lsp_id = lsp_id
         self.src_ip = src_ip
         self.dst_ip = dst_ip
         self.dataSize = dataSize
         self.route = None
+        self.style = None
+        self.rsvp_hop = None
 
 class RouteObject():
 
     def __init__(self, src_ip, dst_ip, path):
         self.src_ip = src_ip
         self.dst_ip = dst_ip
-        self.path = path
-
-    def set_shortest_path(self, path):
         self.path = path
 
     # 获取当前设备在路径表中的索引值, 加1后是下一跳地址索引值
@@ -51,6 +55,20 @@ class Connection():
         self.dst_ip = dst_ip
         self.bandWidth = bandWidth
         self.path = route
+
+class PSB():
+    def __init__(self, lsp_id, rsvp_hop, interface):
+        self.lsp_id = lsp_id
+        self.prv_hop = rsvp_hop
+        self.interface = interface
+
+class RSB():
+    def __init__(self, lsp_id, next_hop, dataSize, interface):
+        self.lsp_id = lsp_id
+        self.next_hop = next_hop
+        self.dataSize = dataSize
+        self.interface = interface
+
 
 # 资源管理
 class Resource():
