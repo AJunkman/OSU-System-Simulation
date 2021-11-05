@@ -146,21 +146,17 @@ class Database(dict):
                 g.add_e(lsa.adv_osu, neighbor_id, cost)
         if osu_id in nodes:
             nodes.remove(osu_id)
+
         # Find a shortest path from osu_id to dest
-        dist, prev, full_path = g.shorest_path(osu_id)
+        dist, full_path = g.shorest_path(osu_id)
 
         for dest in nodes:
             # Trace the path back using the prev array.
-            path = []
-            current = dest
-            while current in prev:
-                path.insert(0, prev[current])
-                current = prev[current]
             try:
                 cost = dist[dest]
             except KeyError:
                 continue
             else:
-                next_hop = (path[1] if len(path) > 1 else dest)
+                next_hop = (full_path[dest][1] if dest in full_path else dest)
                 paths[dest] = (next_hop, cost)
         return paths, full_path

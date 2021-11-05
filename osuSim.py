@@ -1,7 +1,5 @@
 # 系统模块
-import os
 import sys
-import argparse
 import socket
 import time
 import configparser
@@ -24,25 +22,32 @@ class RepeatingTimer(Thread):
         self.interval = interval
         self.callback = callback
         self.args = args
+
     def run(self):
         while not self.stop_event.wait(self.interval):
             if self.args:
                 self.callback(self.args)
             else:
                 self.callback()
+
     def stop(self):
         self.stop_event.set()
+
+
 def mktimer(interval, callback, args = ()):
     timer = RepeatingTimer(interval, callback, args)
     return timer
+
 
 # 服务端消息接收协议
 class RxProtocol(asyncio.Protocol):
     def __init__(self, osu, name):
         self.osu = osu
         self.iface_name = name
+
     def connection_made(self, transport):
         self.transport = transport
+
     def data_received(self, data):
         packet = eval(data.decode())
         # log('Data received: %s '%(packet))
@@ -63,7 +68,6 @@ class RxProtocol(asyncio.Protocol):
                 self.osu._sync_lsdb(neighbor_id)
         # LSP包处理
         elif 'adv_osu' in packet.keys():
-        # else:
             # Insert to Link State database
             packets = ospf.LinkStatePacket(packet['adv_osu'], packet['age'], packet['seq_no'], packet['networks'], packet['tlv'])
             if self.osu._lsdb.insert(packets):
@@ -91,6 +95,7 @@ class RxProtocol(asyncio.Protocol):
         else:
             pass
 
+
 # 客户端消息发送协议
 class TxProtocol(asyncio.Protocol):
     def __init__(self, message, on_con_lost):
@@ -101,6 +106,7 @@ class TxProtocol(asyncio.Protocol):
         # logging.info('Data sent: %s '%(self.message))
     def connection_lost(self, exc):
         self.on_con_lost.set_result(True)
+
 
 # 定义消息传输方法
 def IfaceTx(loop, address, port, data):
@@ -124,6 +130,7 @@ def IfaceTx(loop, address, port, data):
     loop.run_until_complete(loop.shutdown_asyncgens())
     loop.close()
 
+
 class Route(object):
     def __init__(self, dest, gateway, netmask, metric, iface):
         self.dest = dest
@@ -131,6 +138,8 @@ class Route(object):
         self.netmask = netmask
         self.metric = metric
         self.iface = iface
+
+
 class RoutingTable(list): # RoutingTable[Route1, Route2...]
     def __repr__(self):
         routes = ['Dest\tGateway\tNetmask\tMetric\tInterface']
@@ -139,6 +148,7 @@ class RoutingTable(list): # RoutingTable[Route1, Route2...]
         return '\n'.join(routes)
     def clear(self):
         del self[:]
+
 
 class OSU(object):
 

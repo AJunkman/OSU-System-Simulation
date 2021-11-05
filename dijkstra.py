@@ -31,7 +31,6 @@ class Graph(object):
         """
         dist = {src: 0}     # 去往各个目的地所需代价
         visited = []        # 已遍历路由器
-        previous = {}       # 去往各个目的地的下一跳路由器
         full_path = {}      # 记录去往各个节点的全路径，{'end': [path]}格式
         queue = []
         heapq.heappush(queue, (dist[src], src))     # 将(累计代价，目的地)加入到queue中，形成堆队列
@@ -50,8 +49,6 @@ class Graph(object):
                 if end not in dist or cum_cost < dist[end]:
                     # 记录完整路径
                     full_path[end] = full_path[current][:-1] + [current, end] if current in full_path else [current, end]
-                    # 标记上一节点
-                    previous[end] = current
                     dist[end] = cum_cost
                     heapq.heappush(queue, (dist[end], end))
-        return dist, previous, full_path
+        return dist, full_path
