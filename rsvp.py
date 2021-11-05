@@ -61,9 +61,9 @@ class Resource():
         connKey = pathResvMsg.src_ip + pathResvMsg.dst_ip + str(pathResvMsg.dataSize)
         interface.connection[connKey] = conn
         # 预留资源，可用带宽减少
-        interface.rsv_bw = interface.rsv_bw - pathResvMsg.dataSize
+        interface.ava_bw = interface.ava_bw - pathResvMsg.dataSize
         # 不可用带宽增加
-        interface.unrsv_bw = interface.unrsv_bw + pathResvMsg.dataSize
+        interface.use_bw = interface.use_bw + pathResvMsg.dataSize
         # 端口创建的连接数增加
         interface.connNum += 1
 
@@ -71,9 +71,9 @@ class Resource():
         connKey = Msg.src_ip + Msg.dst_ip + str(Msg.dataSize)
         interface.connection.pop(connKey)
         # 释放占用资源，可用带宽增加
-        interface.rsv_bw = interface.rsv_bw + Msg.dataSize
+        interface.ava_bw = interface.ava_bw + Msg.dataSize
         # 不可用带宽减少
-        interface.unrsv_bw = interface.unrsv_bw - Msg.dataSize
+        interface.use_bw = interface.use_bw - Msg.dataSize
 
 
 

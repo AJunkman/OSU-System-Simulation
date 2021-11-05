@@ -297,8 +297,8 @@ class OSU(object):
                 # lth: 更新链路信息
                 else:
                     iface = self._interfaces[iface_name]
-                    lsa.tlv[iface_name]['val']['7'] = iface.ava_bw
-                    lsa.tlv[iface_name]['val']['8'] = iface.use_bw
+                    lsa.tlv[iface_name]['val']['32'] = iface.ava_bw
+                    lsa.tlv[iface_name]['val']['33'] = iface.use_bw
         else:
             lsa = ospf.LinkStatePacket(self._hostname, 1, 1, networks, {})
             for iface_name in link_enable_ports:
