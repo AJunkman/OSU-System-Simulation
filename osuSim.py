@@ -1,28 +1,18 @@
+# 系统模块
 import sys
-import pdb
-
-sys.path.append(r'/home/osu-sim/share/OsuSystemSimulation')
-import argparse
 import socket
 import time
 import configparser
 import asyncio
 import random
 import threading
-from threading import *
 import logging
+from threading import *
+
+# 项目模块
 import ospf
 import rsvp
-import os
 
-def log(msg):
-    print('%s    %s' % (time.ctime().split()[3], msg))
-
-# 自定义日志输出格式
-LOG_FORMAT = "%(asctime)s - %(levelname)s - %(message)s"
-DATE_FORMAT = "%Y/%m/%d %H:%M:%S %p"
-logging.getLogger('asyncio').setLevel(logging.ERROR)
-logging.basicConfig(filename='sim.log', level=logging.DEBUG, format=LOG_FORMAT, datefmt=DATE_FORMAT)
 
 # 重写Thread中的方法，实现多定时任务不间断执行
 class RepeatingTimer(Thread):
@@ -32,25 +22,32 @@ class RepeatingTimer(Thread):
         self.interval = interval
         self.callback = callback
         self.args = args
+
     def run(self):
         while not self.stop_event.wait(self.interval):
             if self.args:
                 self.callback(self.args)
             else:
                 self.callback()
+
     def stop(self):
         self.stop_event.set()
+
+
 def mktimer(interval, callback, args = ()):
     timer = RepeatingTimer(interval, callback, args)
     return timer
+
 
 # 服务端消息接收协议
 class RxProtocol(asyncio.Protocol):
     def __init__(self, osu, name):
         self.osu = osu
         self.iface_name = name
+
     def connection_made(self, transport):
         self.transport = transport
+
     def data_received(self, data):
         packet = eval(data.decode())
         # log('Data received: %s '%(packet))
@@ -71,7 +68,6 @@ class RxProtocol(asyncio.Protocol):
                 self.osu._sync_lsdb(neighbor_id)
         # LSP包处理
         elif 'adv_osu' in packet.keys():
-        # else:
             # Insert to Link State database
             packets = ospf.LinkStatePacket(packet['adv_osu'], packet['age'], packet['seq_no'], packet['networks'], packet['tlv'])
             if self.osu._lsdb.insert(packets):
@@ -99,6 +95,7 @@ class RxProtocol(asyncio.Protocol):
         else:
             pass
 
+
 # 客户端消息发送协议
 class TxProtocol(asyncio.Protocol):
     def __init__(self, message, on_con_lost):
@@ -109,6 +106,7 @@ class TxProtocol(asyncio.Protocol):
         # logging.info('Data sent: %s '%(self.message))
     def connection_lost(self, exc):
         self.on_con_lost.set_result(True)
+
 
 # 定义消息传输方法
 def IfaceTx(loop, address, port, data):
@@ -132,6 +130,7 @@ def IfaceTx(loop, address, port, data):
     loop.run_until_complete(loop.shutdown_asyncgens())
     loop.close()
 
+
 class Route(object):
     def __init__(self, dest, gateway, netmask, metric, iface):
         self.dest = dest
@@ -139,6 +138,8 @@ class Route(object):
         self.netmask = netmask
         self.metric = metric
         self.iface = iface
+
+
 class RoutingTable(list): # RoutingTable[Route1, Route2...]
     def __repr__(self):
         routes = ['Dest\tGateway\tNetmask\tMetric\tInterface']
@@ -147,6 +148,7 @@ class RoutingTable(list): # RoutingTable[Route1, Route2...]
         return '\n'.join(routes)
     def clear(self):
         del self[:]
+
 
 class OSU(object):
 
@@ -289,14 +291,14 @@ class OSU(object):
                                  lcl_id=self._hostname,
                                  rmt_id=iface.link,
                                  max_bw=iface.bandwidth,
-                                 max_rsv_bw=iface.rsv_bw,
-                                 max_unrsv_bw=iface.unrsv_bw,
+                                 ava_bw=iface.ava_bw,
+                                 use_bw=iface.use_bw,
                                  av_delay=iface.av_delay)
                 # lth: 更新链路信息
                 else:
                     iface = self._interfaces[iface_name]
-                    lsa.tlv[iface_name]['val']['7'] = iface.rsv_bw
-                    lsa.tlv[iface_name]['val']['8'] = iface.unrsv_bw
+                    lsa.tlv[iface_name]['val']['32'] = iface.ava_bw
+                    lsa.tlv[iface_name]['val']['33'] = iface.use_bw
         else:
             lsa = ospf.LinkStatePacket(self._hostname, 1, 1, networks, {})
             for iface_name in link_enable_ports:
@@ -305,8 +307,8 @@ class OSU(object):
                              lcl_id=self._hostname,
                              rmt_id=iface.link,
                              max_bw=iface.bandwidth,
-                             max_rsv_bw=iface.rsv_bw,
-                             max_unrsv_bw=iface.unrsv_bw,
+                             ava_bw=iface.ava_bw,
+                             use_bw=iface.use_bw,
                              av_delay=iface.av_delay)
         self._lsdb.insert(lsa)
         # 向邻居泛洪 LSA
@@ -382,7 +384,7 @@ class OSU(object):
             for pre_iface in self._interfaces.values():
                 if prv_hop == pre_iface.link:
                     # 检查输入端口的资源是否够用
-                    if pathMsg.dataSize > pre_iface.rsv_bw:
+                    if pathMsg.dataSize > pre_iface.ava_bw:
                         # 此处应当返回资源不足，连接创建失败的消息，后续根据PathErrorMsg补充
                         pass
         # 判断是不是最后一跳，不是最后一跳
@@ -393,7 +395,7 @@ class OSU(object):
                 for next_iface in self._interfaces.values():
                     if next_hop == next_iface.link:
                         # 检查输出端口的资源是否够用
-                        if pathMsg.dataSize < next_iface.rsv_bw:
+                        if pathMsg.dataSize < next_iface.ava_bw:
                             # 向下一跳发送pathMsg
                             next_iface.transmit(pathMsg)
                         else:
@@ -417,7 +419,7 @@ class OSU(object):
             # 循环遍历当前设备所有接口，找出与上一条连接的接口
             for pre_iface in self._interfaces.values():
                 if prv_hop == pre_iface.link:
-                    if pathResvMsg.dataSize < pre_iface.rsv_bw:
+                    if pathResvMsg.dataSize < pre_iface.ava_bw:
                     # 资源可用，将即将创建的连接保存在interface中
                         rsvp.Resource.reservation(pre_iface, pathResvMsg)
                     else:
@@ -431,7 +433,7 @@ class OSU(object):
             if next_hop in seen:
                 for next_iface in self._interfaces.values():
                     if next_hop == next_iface.link:
-                        if pathResvMsg.dataSize < next_iface.rsv_bw:
+                        if pathResvMsg.dataSize < next_iface.ava_bw:
                             rsvp.Resource.reservation(next_iface, pathResvMsg)
                             # 向下一跳发送pathMsg
                             next_iface.transmit(pathResvMsg)
@@ -456,8 +458,8 @@ class Interface():
         self.link = None
         self.remote_end_host = None
         self.remote_end_port = None
-        self.rsv_bw = bandwidth
-        self.unrsv_bw = 0
+        self.ava_bw = bandwidth
+        self.use_bw = 0
         self.bd_change_rng = 20
         self.av_delay = av_delay
         self.connNum = 0
@@ -497,26 +499,9 @@ class Interface():
         change_thread.start()
         monitor_thread.start()
 
-def init_argparser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", help="the path of the config file")
-    return parser
 
-
-def sim_run():
-    arg_parser = init_argparser()
-    args = arg_parser.parse_args()
-    conf_name = args.config
-    if not conf_name:
-        arg_parser.print_help()
-        exit()
-    conf_file_path = os.path.join("topologies", conf_name)
-
+def sim_run(conf_file_path):
     AdjList = {}
-    routingT = {}
-    routingTable = []
-    linkState = {}
-    linkStateDb = []
     cp = configparser.ConfigParser()
     cp.read(conf_file_path)
     hostname = cp.get('Local','hostname')
@@ -552,9 +537,4 @@ def sim_run():
         cols = [name, address, netmask, bandwidth, link]
         for val in cols:
             AdjList.setdefault(cols[0],[]).append(val)
-    # print(AdjList)
     osu.start()
-
-
-if __name__ == '__main__':
-    sim_run()
