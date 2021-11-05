@@ -83,11 +83,12 @@ class RxProtocol(asyncio.Protocol):
             # 判断是PathMsg
             if packet['msg_type'] == '0x01':
                 pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['dataSize'])
+                pathMsg.lsp_id = packet['lsp_id']
                 pathMsg.route = packet['route']
                 self.osu._path(pathMsg)
             # 判断是PathResvMsg
             elif packet['msg_type'] == '0x02':
-                pathResvMsg = rsvp.PathResvMsg(packet['src_ip'], packet['dst_ip'], packet['dataSize'])
+                pathResvMsg = rsvp.PathResvMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['dataSize'])
                 pathResvMsg.route = packet['route']
                 self.osu._pathResv(pathResvMsg)
             else:
@@ -343,6 +344,15 @@ class OSU(object):
         iface.remote_end_host = host
         iface.remote_end_port = port
 
+    def find_iface(self, hop):
+        seen = list(self._seen.keys())
+        _iface = None
+        if hop in seen:
+            for iface in self._interfaces.values():
+                if hop == iface.link:
+                    _iface = iface
+                    return _iface         
+
     def IfaceRx(self, loop, name):
         #为子线程设置自己的事件循环
         asyncio.set_event_loop(loop)
@@ -370,81 +380,177 @@ class OSU(object):
         for dst in self.shortestPath.keys():
             dataSize = random.randint(2, 10000)
             pathMsg = rsvp.PathMsg(self._hostname, dst, dataSize)
+            pathMsg.set_lsp_id()
             pathMsg.route = self.shortestPath[dst]
             self._path(pathMsg)
 
     
     # 处理pathMsg，向下游沿途保存路径状态
     def _path(self, pathMsg):
-        # 判断是不是第一跳，不是第一跳
         routeObject = rsvp.RouteObject(pathMsg.src_ip, pathMsg.dst_ip, pathMsg.route)
+        # 判断是不是第一跳，不是第一跳
         if pathMsg.src_ip != self._hostname:
-            # 循环遍历当前设备所有接口，找出与上一条连接的接口
             prv_hop = routeObject.get_prev_hop(self._hostname)
-            for pre_iface in self._interfaces.values():
-                if prv_hop == pre_iface.link:
-                    # 检查输入端口的资源是否够用
-                    if pathMsg.dataSize > pre_iface.ava_bw:
+            pre_iface = self.find_iface(prv_hop)
+            if pre_iface:
+                if rsvp.State_Block.creatPSB(pathMsg, prv_hop, pre_iface):
+                    logging.info('%s-PSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, pathMsg.lsp_id, ))
+                else:
+                    # 此处应当返回资源不足，连接创建失败的消息，后续根据PathErrorMsg补充
+                    pathErrMsg = rsvp.PathErrMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, self._hostname, pathMsg.route)
+                    pathErrMsg.route.reverse()
+                    self._pathErr(pathErrMsg)
+            # 判断是不是最后一跳，不是最后一跳
+            if pathMsg.dst_ip != self._hostname:
+            # 循环遍历当前设备所有接口，找出与上一条连接的接口
+                next_hop = routeObject.get_next_hop(self._hostname)
+                next_iface = self.find_iface(next_hop)
+                if next_iface:
+                    if rsvp.State_Block.creatPSB(pathMsg, prv_hop, next_iface):
+                        logging.info('%s-PSB created successfully by %s —> lsp_id: %s'%(self._hostname, next_iface.name, pathMsg.lsp_id, ))
+                        next_iface.transmit(pathMsg)
+                    else:
                         # 此处应当返回资源不足，连接创建失败的消息，后续根据PathErrorMsg补充
-                        pass
-        # 判断是不是最后一跳，不是最后一跳
-        if pathMsg.dst_ip != self._hostname:
-            next_hop = routeObject.get_next_hop(self._hostname)
-            seen = list(self._seen.keys())
-            if next_hop in seen:
-                for next_iface in self._interfaces.values():
-                    if next_hop == next_iface.link:
-                        # 检查输出端口的资源是否够用
-                        if pathMsg.dataSize < next_iface.ava_bw:
-                            # 向下一跳发送pathMsg
-                            next_iface.transmit(pathMsg)
-                        else:
-                            # 此处应当返回资源不足，连接创建失败的消息，后续根据PathErrorMsg补充
-                            pass
-        # 是最后一跳，触发_pathResv方法，开始向上游逐一回复pathResvMsg
+                        pathErrMsg = rsvp.PathErrMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, self._hostname, pathMsg.route)
+                        pathErrMsg.route.reverse()
+                        self._pathErr(pathErrMsg)
+            # 是最后一跳，触发_pathResv方法，开始向上游逐一回复pathResvMsg
+            else:
+                # 封装pathResvMsg，逆着回发消息，源地址和目的地址调换位置赋值
+                pathResvMsg = rsvp.PathResvMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, pathMsg.dataSize)
+                # 原来的路径应当逆序赋值给pathResvMsg中的路由
+                pathResvMsg.route = pathMsg.route
+                pathResvMsg.route.reverse()
+                self._pathResv(pathResvMsg)
         else:
-            # 封装pathResvMsg，逆着回发消息，源地址和目的地址调换位置赋值
-            pathResvMsg = rsvp.PathResvMsg(pathMsg.dst_ip, pathMsg.src_ip, pathMsg.dataSize)
-            # 原来的路径应当逆序赋值给pathResvMsg中的路由
-            pathResvMsg.route = pathMsg.route
-            pathResvMsg.route.reverse()
-            self._pathResv(pathResvMsg)
+            next_hop = routeObject.get_next_hop(self._hostname)
+            next_iface = self.find_iface(next_hop)
+            if next_iface:
+                if rsvp.State_Block.creatPSB(pathMsg, None, next_iface):
+                    logging.info('%s-PSB created successfully by %s —> lsp_id: %s'%(self._hostname, next_iface.name, pathMsg.lsp_id, ))
+                    next_iface.transmit(pathMsg)
+                else:
+                    # 此处应当返回资源不足，连接创建失败的消息，后续根据PathErrorMsg补充
+                    pathErrMsg = rsvp.PathErrMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, self._hostname, pathMsg.route)
+                    pathErrMsg.route.reverse()
+                    self._pathErr(pathErrMsg)
+
 
     # 处理pathResvMsg，向上游沿途预留资源
     def _pathResv(self, pathResvMsg):
         routeObject = rsvp.RouteObject(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.route)
-        # routeObject.set_shortest_path(pathResvMsg.route)
-        if pathResvMsg.src_ip != self._hostname:
-            prv_hop = routeObject.get_prev_hop(self._hostname)
-            # 循环遍历当前设备所有接口，找出与上一条连接的接口
-            for pre_iface in self._interfaces.values():
-                if prv_hop == pre_iface.link:
-                    if pathResvMsg.dataSize < pre_iface.ava_bw:
-                    # 资源可用，将即将创建的连接保存在interface中
-                        rsvp.Resource.reservation(pre_iface, pathResvMsg)
+        if pathResvMsg.dst_ip != self._hostname:
+            next_hop = routeObject.get_next_hop(self._hostname)
+            next_iface = self.find_iface(next_hop)
+            if next_iface:
+                if rsvp.State_Block.creatRSB(pathResvMsg, next_hop, next_iface):
+                    logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, next_iface.name, pathResvMsg.lsp_id,))
+                    next_iface.transmit(pathResvMsg)
+                else:
+                # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
+                    resvErrMsg = rsvp.PathErrMsg(pathResvMsg.lsp_id, pathResvMsg.dst_ip, pathResvMsg.src_ip, self._hostname, pathResvMsg.route)
+                    resvErrMsg.route.reverse()
+                    self._resvErr(resvErrMsg)
+            if pathResvMsg.src_ip != self._hostname:
+                prv_hop = routeObject.get_prev_hop(self._hostname)
+                # 循环遍历当前设备所有接口，找出与上一条连接的接口
+                pre_iface = self.find_iface(prv_hop)
+                if pre_iface:
+                    if rsvp.State_Block.creatRSB(pathResvMsg, next_hop, pre_iface):
+                        logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, pathResvMsg.lsp_id, ))
                     else:
                     # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
-                        pass
-        # 判断是不是最后一跳，不是最后一跳
-        if pathResvMsg.dst_ip != self._hostname:
-            #pdb.set_trace()
-            next_hop = routeObject.get_next_hop(self._hostname)
-            seen = list(self._seen.keys())
-            if next_hop in seen:
-                for next_iface in self._interfaces.values():
-                    if next_hop == next_iface.link:
-                        if pathResvMsg.dataSize < next_iface.ava_bw:
-                            rsvp.Resource.reservation(next_iface, pathResvMsg)
-                            # 向下一跳发送pathMsg
-                            next_iface.transmit(pathResvMsg)
-                        else:
-                            # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
-                            pass
+                        resvErrMsg = rsvp.PathErrMsg(pathResvMsg.lsp_id, pathResvMsg.dst_ip, pathResvMsg.src_ip, self._hostname, pathResvMsg.route)
+                        resvErrMsg.route.reverse()
+                        self._resvErr(resvErrMsg)
         else:
-            # 最后一跳，说明连接创建成功
-            logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, pathResvMsg.dataSize, pathResvMsg.src_ip, pathResvMsg.dst_ip,))
+            prv_hop = routeObject.get_prev_hop(self._hostname)
+            # 循环遍历当前设备所有接口，找出与上一条连接的接口
+            pre_iface = self.find_iface(prv_hop)
+            if pre_iface:
+                if rsvp.State_Block.creatRSB(pathResvMsg, None, pre_iface):
+                    logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, pathResvMsg.lsp_id, ))
+                    # 最后一跳，说明连接创建成功
+                    logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, pathResvMsg.dataSize, pathResvMsg.dst_ip, pathResvMsg.src_ip))                
+                else:
+                # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
+                    resvErrMsg = rsvp.PathErrMsg(pathResvMsg.lsp_id, pathResvMsg.dst_ip, pathResvMsg.src_ip, self._hostname, pathResvMsg.route)
+                    resvErrMsg.route.reverse()
+                    self._resvErr(resvErrMsg)
         # 资源变化，通告LSA消息
         # self._advertise()
+
+    def _pathErr(self, pathErrMsg):
+        routeObject = rsvp.RouteObject(pathErrMsg.src_ip, pathErrMsg.dst_ip, pathErrMsg.route)
+        if pathErrMsg.dst_ip != self._hostname:
+            next_hop = routeObject.get_next_hop(self._hostname)
+            next_iface = self.find_iface(next_hop)
+            if next_iface:
+                if next_iface.psb[pathErrMsg.prv_hop] == next_hop:
+                    next_iface.transmit(pathErrMsg)
+                else:
+                    logging.info('%s-PathErrMsg path is not exist'%(self._hostname, ))
+        else:
+            logging.info('%s-Error in %s processing pathMsg'%(self._hostname, pathErrMsg.err_msg ))
+            pathTearMsg = rsvp.PathTearMsg(pathErrMsg.lsp_id, pathErrMsg.src_ip, pathErrMsg.dst_ip, pathErrMsg.rout)
+            pathTearMsg.route.reverse()
+            self._pathTear(pathTearMsg)
+
+
+    def _resvErr(self, resvErrMsg):
+        routeObject = rsvp.RouteObject(resvErrMsg.src_ip, resvErrMsg.dst_ip, resvErrMsg.route)
+        if resvErrMsg.dst_ip != self._hostname:
+            next_hop = routeObject.get_next_hop(self._hostname)
+            next_iface = self.find_iface(next_hop)
+            if next_iface:
+                next_iface.transmit(resvErrMsg)
+        else:
+            logging.info('%s-Error in %s processing resvMsg'%(self._hostname, resvErrMsg.err_msg ))
+            resvTearMsg = rsvp.ResvTearMsg(resvErrMsg.lsp_id, resvErrMsg.src_ip, resvErrMsg.dst_ip, resvErrMsg.rout)
+            resvTearMsg.route.reverse()
+            self._resvTear(resvTearMsg)
+
+
+    def _pathTear(self, pathTearMsg):
+        routeObject = rsvp.RouteObject(pathTearMsg.src_ip, pathTearMsg.dst_ip, pathTearMsg.route)
+        if pathTearMsg.src_ip != self._hostname:
+            prv_hop = routeObject.get_prev_hop(self._hostname)
+            pre_iface = self.find_iface(prv_hop)
+            if pre_iface:
+                if pre_iface.psb[pathTearMsg.lsp_id]:
+                    pre_iface.psb.pop(pathTearMsg.lsp_id)
+        if pathTearMsg.dst_ip != self._hostname:
+            next_hop = routeObject.get_next_hop(self._hostname)
+            next_iface = self.find_iface(next_hop)
+            if next_iface:
+                if next_iface.psb[pathTearMsg.lsp_id]:
+                    next_iface.psb.pop(pathTearMsg.lsp_id)
+                    next_iface.transmit(pathTearMsg)
+        else:
+            logging.info('%s-PSB of lsp_id(%s) successfully tear'%(self._hostname, pathTearMsg.lsp_id, ))
+
+    def _resvTear(self, resvTearMsg):
+        routeObject = rsvp.RouteObject(resvTearMsg.src_ip, resvTearMsg.dst_ip, resvTearMsg.route)
+        if resvTearMsg.src_ip != self._hostname:
+            prv_hop = routeObject.get_prev_hop(self._hostname)
+            pre_iface = self.find_iface(prv_hop)
+            if pre_iface:
+                if pre_iface.rsb[resvTearMsg.lsp_id]:
+                    rsvp.Resource.release(pre_iface, resvTearMsg)
+                if pre_iface.psb[resvTearMsg.lsp_id]:
+                    pre_iface.psb.pop(resvTearMsg.lsp_id)
+        if resvTearMsg.dst_ip != self._hostname:
+            next_hop = routeObject.get_next_hop(self._hostname)
+            next_iface = self.find_iface(next_hop)
+            if next_iface:
+                if next_iface.rsb[resvTearMsg.lsp_id]:
+                    rsvp.Resource.release(next_iface, resvTearMsg)
+                    next_iface.transmit(resvTearMsg)
+                if next_iface.rsb[resvTearMsg.lsp_id]:
+                   next_iface.psb.pop(resvTearMsg.lsp_id) 
+        else:
+            logging.info('%s-RSB of lsp_id(%s) successfully tear'%(self._hostname, resvTearMsg.lsp_id, ))
+
 
 class Interface():
     # OSU接口
