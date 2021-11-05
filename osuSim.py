@@ -12,6 +12,7 @@ from threading import *
 # 项目模块
 import ospf
 import rsvp
+import log
 
 
 # 重写Thread中的方法，实现多定时任务不间断执行
@@ -501,6 +502,7 @@ class Interface():
 
 
 def sim_run(conf_file_path):
+    log.start_thread_logging()
     AdjList = {}
     cp = configparser.ConfigParser()
     cp.read(conf_file_path)
