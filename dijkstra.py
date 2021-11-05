@@ -1,5 +1,5 @@
 import heapq
-import pdb
+from filecmp import cmp
 from collections import defaultdict
 
 
@@ -30,28 +30,28 @@ class Graph(object):
         形式 (dist, previous)。
         """
         dist = {src: 0}     # 去往各个目的地所需代价
-        visited = {}        # 已遍历路由器
+        visited = []        # 已遍历路由器
         previous = {}       # 去往各个目的地的下一跳路由器
-        complete_route = {} # 记录去往各个节点的全路径，{'end': [path]}格式
+        full_path = {} # 记录去往各个节点的全路径，{'end': [path]}格式
         queue = []
         heapq.heappush(queue, (dist[src], src))     # 将(累计代价，目的地)加入到queue中，形成堆队列
         while queue:
             distance, current = heapq.heappop(queue)
             if current in visited:
                 continue
-            visited[current] = True
+            visited.append(current)
 
+            # 依次遍历邻居节点，找寻代价最小的邻居
             for edge in self.adj[current]:
-                relaxed = dist[current] + edge.weight
+                # 计算去往邻居的累积代价
+                cum_cost = dist[current] + edge.weight
+                # 邻居节点
                 end = edge.end
-                if end not in complete_route or relaxed < dist[end]:
-                    if end != src:
-                        complete_route[end] = [current, end]
-                        if current in complete_route:
-                            complete_route[end] = complete_route[current] + complete_route[end][1:]
-                if end not in dist or relaxed < dist[end]:
+                if end not in dist or cum_cost < dist[end]:
+                    # 记录完整路径
+                    full_path[end] = full_path[current][:-1] + [current, end] if current in full_path else [current, end]
+                    # 标记上一节点
                     previous[end] = current
-                    dist[end] = relaxed
+                    dist[end] = cum_cost
                     heapq.heappush(queue, (dist[end], end))
-        return dist, previous, complete_route
-
+        return dist, previous, full_path
