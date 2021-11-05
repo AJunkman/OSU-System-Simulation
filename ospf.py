@@ -147,7 +147,7 @@ class Database(dict):
         if osu_id in nodes:
             nodes.remove(osu_id)
         # Find a shortest path from osu_id to dest
-        dist, prev, full_path = g.s_path(osu_id)
+        dist, prev, full_path = g.shorest_path(osu_id)
 
         for dest in nodes:
             # Trace the path back using the prev array.

@@ -24,7 +24,7 @@ class Graph(object):
     def add_e(self, start, end, weight=0):
         self.adj[start].append(Edge(start, end, weight))
 
-    def s_path(self, src):
+    def shorest_path(self, src):
         """
         返回从源和数组到每个顶点的距离，数组表示在索引 i 处，在访问节点 i 之前访问过的节点。
         形式 (dist, previous)。
