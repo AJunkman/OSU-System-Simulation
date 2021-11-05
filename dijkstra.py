@@ -32,7 +32,7 @@ class Graph(object):
         dist = {src: 0}     # 去往各个目的地所需代价
         visited = []        # 已遍历路由器
         previous = {}       # 去往各个目的地的下一跳路由器
-        full_path = {} # 记录去往各个节点的全路径，{'end': [path]}格式
+        full_path = {}      # 记录去往各个节点的全路径，{'end': [path]}格式
         queue = []
         heapq.heappush(queue, (dist[src], src))     # 将(累计代价，目的地)加入到queue中，形成堆队列
         while queue:
