@@ -1,7 +1,6 @@
 import sys
 import pdb
 
-from rsvp import PathMsg
 sys.path.append(r'/home/osu-sim/share/OsuSystemSimulation')
 import argparse
 import socket
@@ -15,8 +14,6 @@ import logging
 import ospf
 import rsvp
 import os
-import ast
-import flowGenerator
 
 def log(msg):
     print('%s    %s' % (time.ctime().split()[3], msg))
@@ -465,6 +462,8 @@ class Interface():
         self.av_delay = av_delay
         self.connNum = 0
         self.connection = {}
+        self.psb = {}
+        self.rsb = {}
         # self.monitor_port_thread()
 
     def transmit(self, packet):
