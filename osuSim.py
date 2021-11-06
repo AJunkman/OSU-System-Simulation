@@ -86,11 +86,23 @@ class RxProtocol(asyncio.Protocol):
                 pathMsg.lsp_id = packet['lsp_id']
                 pathMsg.route = packet['route']
                 self.osu._path(pathMsg)
-            # 判断是PathResvMsg
+            # 判断是ResvMsg
             elif packet['msg_type'] == '0x02':
-                pathResvMsg = rsvp.PathResvMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['dataSize'])
-                pathResvMsg.route = packet['route']
-                self.osu._pathResv(pathResvMsg)
+                resvMsg = rsvp.ResvMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['dataSize'])
+                resvMsg.route = packet['route']
+                self.osu._resv(resvMsg)
+            elif packet['msg_type'] == '0x03':
+                pathErrMsg = rsvp.PathErrMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['err_msg'], packet['route'])
+                self.osu._pathErr(pathErrMsg)
+            elif packet['msg_type'] == '0x04':
+                resvErrMsg = rsvp.ResvErrMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['err_msg'], packet['route'])
+                self.osu._resvErr(resvErrMsg)
+            elif packet['msg_type'] == '0x05':
+                pathTearMsg = rsvp.PathTearMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['route'])
+                self.osu._pathTear(pathTearMsg)
+            elif packet['msg_type'] == '0x06':
+                resvTearMsg = rsvp.ResvTearMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['route'])
+                self.osu._resvTear(resvTearMsg)
             else:
                 pass
         else:
@@ -378,7 +390,7 @@ class OSU(object):
 
     def _createConnTest(self):
         for dst in self.shortestPath.keys():
-            dataSize = random.randint(2, 10000)
+            dataSize = random.randint(2, 100000)
             pathMsg = rsvp.PathMsg(self._hostname, dst, dataSize)
             pathMsg.set_lsp_id()
             pathMsg.route = self.shortestPath[dst]
@@ -414,14 +426,14 @@ class OSU(object):
                         pathErrMsg = rsvp.PathErrMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, self._hostname, pathMsg.route)
                         pathErrMsg.route.reverse()
                         self._pathErr(pathErrMsg)
-            # 是最后一跳，触发_pathResv方法，开始向上游逐一回复pathResvMsg
+            # 是最后一跳，触发_pathResv方法，开始向上游逐一回复resvMsg
             else:
-                # 封装pathResvMsg，逆着回发消息，源地址和目的地址调换位置赋值
-                pathResvMsg = rsvp.PathResvMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, pathMsg.dataSize)
-                # 原来的路径应当逆序赋值给pathResvMsg中的路由
-                pathResvMsg.route = pathMsg.route
-                pathResvMsg.route.reverse()
-                self._pathResv(pathResvMsg)
+                # 封装resvMsg，逆着回发消息，源地址和目的地址调换位置赋值
+                resvMsg = rsvp.ResvMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, pathMsg.dataSize)
+                # 原来的路径应当逆序赋值给resvMsg中的路由
+                resvMsg.route = pathMsg.route
+                resvMsg.route.reverse()
+                self._resv(resvMsg)
         else:
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
@@ -436,31 +448,31 @@ class OSU(object):
                     self._pathErr(pathErrMsg)
 
 
-    # 处理pathResvMsg，向上游沿途预留资源
-    def _pathResv(self, pathResvMsg):
-        routeObject = rsvp.RouteObject(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.route)
-        if pathResvMsg.dst_ip != self._hostname:
+    # 处理resvMsg，向上游沿途预留资源
+    def _resv(self, resvMsg):
+        routeObject = rsvp.RouteObject(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.route)
+        if resvMsg.dst_ip != self._hostname:
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
             if next_iface:
-                if rsvp.State_Block.creatRSB(pathResvMsg, next_hop, next_iface):
-                    logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, next_iface.name, pathResvMsg.lsp_id,))
-                    next_iface.transmit(pathResvMsg)
+                if rsvp.State_Block.creatRSB(resvMsg, next_hop, next_iface):
+                    logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, next_iface.name, resvMsg.lsp_id,))
+                    next_iface.transmit(resvMsg)
                 else:
-                # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
-                    resvErrMsg = rsvp.PathErrMsg(pathResvMsg.lsp_id, pathResvMsg.dst_ip, pathResvMsg.src_ip, self._hostname, pathResvMsg.route)
+                # 抢占资源，连接创建失败，后续根据ResvMsgErr补充
+                    resvErrMsg = rsvp.ResvErrMsg(resvMsg.lsp_id, resvMsg.dst_ip, resvMsg.src_ip, self._hostname, resvMsg.route)
                     resvErrMsg.route.reverse()
                     self._resvErr(resvErrMsg)
-            if pathResvMsg.src_ip != self._hostname:
+            if resvMsg.src_ip != self._hostname:
                 prv_hop = routeObject.get_prev_hop(self._hostname)
                 # 循环遍历当前设备所有接口，找出与上一条连接的接口
                 pre_iface = self.find_iface(prv_hop)
                 if pre_iface:
-                    if rsvp.State_Block.creatRSB(pathResvMsg, next_hop, pre_iface):
-                        logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, pathResvMsg.lsp_id, ))
+                    if rsvp.State_Block.creatRSB(resvMsg, next_hop, pre_iface):
+                        logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, resvMsg.lsp_id, ))
                     else:
-                    # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
-                        resvErrMsg = rsvp.PathErrMsg(pathResvMsg.lsp_id, pathResvMsg.dst_ip, pathResvMsg.src_ip, self._hostname, pathResvMsg.route)
+                    # 抢占资源，连接创建失败，后续根据ResvMsgErr补充
+                        resvErrMsg = rsvp.ResvErrMsg(resvMsg.lsp_id, resvMsg.dst_ip, resvMsg.src_ip, self._hostname, resvMsg.route)
                         resvErrMsg.route.reverse()
                         self._resvErr(resvErrMsg)
         else:
@@ -468,13 +480,13 @@ class OSU(object):
             # 循环遍历当前设备所有接口，找出与上一条连接的接口
             pre_iface = self.find_iface(prv_hop)
             if pre_iface:
-                if rsvp.State_Block.creatRSB(pathResvMsg, None, pre_iface):
-                    logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, pathResvMsg.lsp_id, ))
+                if rsvp.State_Block.creatRSB(resvMsg, None, pre_iface):
+                    logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, resvMsg.lsp_id, ))
                     # 最后一跳，说明连接创建成功
-                    logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, pathResvMsg.dataSize, pathResvMsg.dst_ip, pathResvMsg.src_ip))                
+                    logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, resvMsg.dataSize, resvMsg.dst_ip, resvMsg.src_ip))                
                 else:
-                # 抢占资源，连接创建失败，后续根据pathResvMsgErr补充
-                    resvErrMsg = rsvp.PathErrMsg(pathResvMsg.lsp_id, pathResvMsg.dst_ip, pathResvMsg.src_ip, self._hostname, pathResvMsg.route)
+                # 抢占资源，连接创建失败，后续根据ResvMsgErr补充
+                    resvErrMsg = rsvp.ResvErrMsg(resvMsg.lsp_id, resvMsg.dst_ip, resvMsg.src_ip, self._hostname, resvMsg.route)
                     resvErrMsg.route.reverse()
                     self._resvErr(resvErrMsg)
         # 资源变化，通告LSA消息
@@ -486,13 +498,10 @@ class OSU(object):
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
             if next_iface:
-                if next_iface.psb[pathErrMsg.prv_hop] == next_hop:
                     next_iface.transmit(pathErrMsg)
-                else:
-                    logging.info('%s-PathErrMsg path is not exist'%(self._hostname, ))
         else:
             logging.info('%s-Error in %s processing pathMsg'%(self._hostname, pathErrMsg.err_msg ))
-            pathTearMsg = rsvp.PathTearMsg(pathErrMsg.lsp_id, pathErrMsg.src_ip, pathErrMsg.dst_ip, pathErrMsg.rout)
+            pathTearMsg = rsvp.PathTearMsg(pathErrMsg.lsp_id, pathErrMsg.src_ip, pathErrMsg.dst_ip, pathErrMsg.route)
             pathTearMsg.route.reverse()
             self._pathTear(pathTearMsg)
 
@@ -517,13 +526,13 @@ class OSU(object):
             prv_hop = routeObject.get_prev_hop(self._hostname)
             pre_iface = self.find_iface(prv_hop)
             if pre_iface:
-                if pre_iface.psb[pathTearMsg.lsp_id]:
+                if pathTearMsg.lsp_id in pre_iface.psb:
                     pre_iface.psb.pop(pathTearMsg.lsp_id)
         if pathTearMsg.dst_ip != self._hostname:
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
             if next_iface:
-                if next_iface.psb[pathTearMsg.lsp_id]:
+                if pathTearMsg.lsp_id in pre_iface.psb:
                     next_iface.psb.pop(pathTearMsg.lsp_id)
                     next_iface.transmit(pathTearMsg)
         else:
@@ -535,18 +544,18 @@ class OSU(object):
             prv_hop = routeObject.get_prev_hop(self._hostname)
             pre_iface = self.find_iface(prv_hop)
             if pre_iface:
-                if pre_iface.rsb[resvTearMsg.lsp_id]:
+                if resvTearMsg.lsp_id in pre_iface.rsb:
                     rsvp.Resource.release(pre_iface, resvTearMsg)
-                if pre_iface.psb[resvTearMsg.lsp_id]:
+                if resvTearMsg.lsp_id in pre_iface.psb:
                     pre_iface.psb.pop(resvTearMsg.lsp_id)
         if resvTearMsg.dst_ip != self._hostname:
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
             if next_iface:
-                if next_iface.rsb[resvTearMsg.lsp_id]:
+                if resvTearMsg.lsp_id in next_iface.rsb:
                     rsvp.Resource.release(next_iface, resvTearMsg)
                     next_iface.transmit(resvTearMsg)
-                if next_iface.rsb[resvTearMsg.lsp_id]:
+                if resvTearMsg.lsp_id in next_iface.rsb:
                    next_iface.psb.pop(resvTearMsg.lsp_id) 
         else:
             logging.info('%s-RSB of lsp_id(%s) successfully tear'%(self._hostname, resvTearMsg.lsp_id, ))
