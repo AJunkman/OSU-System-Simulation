@@ -19,7 +19,7 @@ class PathMsg:
         random.seed(time.time())
         self.lsp_id = random.random()
 
-class PathResvMsg:
+class ResvMsg:
 
     def __init__(self, lsp_id, src_ip, dst_ip, dataSize):
         self.msg_type = '0x02'
@@ -41,7 +41,7 @@ class PathErrMsg():
         self.route = route
 
 
-class PathErrMsg():
+class ResvErrMsg():
 
     def __init__(self, lsp_id, src_ip, dst_ip, err_msg, route):
         self.msg_type = '0x04'
@@ -125,24 +125,24 @@ class State_Block():
             iface.psb[pathMsg.lsp_id] = psb
             return psb
 
-    def creatRSB(pathResvMsg, hop, iface):
-        if pathResvMsg.dataSize < iface.ava_bw and iface.psb[pathResvMsg.lsp_id].prv_hop==hop:
+    def creatRSB(resvMsg, hop, iface):
+        if resvMsg.dataSize < iface.ava_bw and iface.psb[resvMsg.lsp_id].prv_hop==hop:
             # # 资源可用，将资源状态保存在rsb中，并为连接预留资源
-            rsb = RSB(pathResvMsg.lsp_id, hop, pathResvMsg.dataSize, iface)
-            iface.rsb[pathResvMsg.lsp_id] = rsb
-            Resource.reservation(iface, pathResvMsg)
+            rsb = RSB(resvMsg.lsp_id, hop, resvMsg.dataSize, iface)
+            iface.rsb[resvMsg.lsp_id] = rsb
+            Resource.reservation(iface, resvMsg)
             return rsb
 
 # 资源管理
 class Resource():
 
-    def reservation(interface, pathResvMsg):
-        conn = Connection(pathResvMsg.src_ip, pathResvMsg.dst_ip, pathResvMsg.dataSize, pathResvMsg.route)
-        interface.connection[pathResvMsg.lsp_id] = conn
+    def reservation(interface, resvMsg):
+        conn = Connection(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.dataSize, resvMsg.route)
+        interface.connection[resvMsg.lsp_id] = conn
         # 预留资源，可用带宽减少
-        interface.ava_bw = interface.ava_bw - pathResvMsg.dataSize
+        interface.ava_bw = interface.ava_bw - resvMsg.dataSize
         # 不可用带宽增加
-        interface.use_bw = interface.use_bw + pathResvMsg.dataSize
+        interface.use_bw = interface.use_bw + resvMsg.dataSize
         # 端口创建的连接数增加
         interface.connNum += 1
 
