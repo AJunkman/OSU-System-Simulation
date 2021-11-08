@@ -208,7 +208,7 @@ class OSU(object):
         for iface in self._interfaces.values():
             packet = ospf.HelloPacket(self._hostname, iface.address, iface.netmask, list(seen))
             iface.transmit(packet)
-        for neighbor_id in self._seen:
+        for neighbor_id in list(self._seen.keys()):
             if neighbor_id not in self._neighbors:
                 self._sync_lsdb(neighbor_id)
 
@@ -390,7 +390,7 @@ class OSU(object):
 
     def _createConnTest(self):
         for dst in self.shortestPath.keys():
-            dataSize = random.randint(2, 100000)
+            dataSize = random.randint(2, 10000)
             pathMsg = rsvp.PathMsg(self._hostname, dst, dataSize)
             pathMsg.set_lsp_id()
             pathMsg.route = self.shortestPath[dst]
@@ -501,7 +501,7 @@ class OSU(object):
                     next_iface.transmit(pathErrMsg)
         else:
             logging.info('%s-Error in %s processing pathMsg'%(self._hostname, pathErrMsg.err_msg ))
-            pathTearMsg = rsvp.PathTearMsg(pathErrMsg.lsp_id, pathErrMsg.src_ip, pathErrMsg.dst_ip, pathErrMsg.route)
+            pathTearMsg = rsvp.PathTearMsg(pathErrMsg.lsp_id, pathErrMsg.dst_ip, pathErrMsg.src_ip, pathErrMsg.route)
             pathTearMsg.route.reverse()
             self._pathTear(pathTearMsg)
 
@@ -515,7 +515,7 @@ class OSU(object):
                 next_iface.transmit(resvErrMsg)
         else:
             logging.info('%s-Error in %s processing resvMsg'%(self._hostname, resvErrMsg.err_msg ))
-            resvTearMsg = rsvp.ResvTearMsg(resvErrMsg.lsp_id, resvErrMsg.src_ip, resvErrMsg.dst_ip, resvErrMsg.rout)
+            resvTearMsg = rsvp.ResvTearMsg(resvErrMsg.lsp_id, resvErrMsg.dst_ip, resvErrMsg.src_ip, resvErrMsg.route)
             resvTearMsg.route.reverse()
             self._resvTear(resvTearMsg)
 
@@ -528,15 +528,17 @@ class OSU(object):
             if pre_iface:
                 if pathTearMsg.lsp_id in pre_iface.psb:
                     pre_iface.psb.pop(pathTearMsg.lsp_id)
+                    logging.info('%s-PSB of lsp_id(%s) successfully tear by pathTear'%(self._hostname, pathTearMsg.lsp_id, ))
         if pathTearMsg.dst_ip != self._hostname:
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
             if next_iface:
-                if pathTearMsg.lsp_id in pre_iface.psb:
+                if pathTearMsg.lsp_id in next_iface.psb:
                     next_iface.psb.pop(pathTearMsg.lsp_id)
-                    next_iface.transmit(pathTearMsg)
+                    logging.info('%s-PSB of lsp_id(%s) successfully tear by pathTear'%(self._hostname, pathTearMsg.lsp_id, ))
+                next_iface.transmit(pathTearMsg)
         else:
-            logging.info('%s-PSB of lsp_id(%s) successfully tear'%(self._hostname, pathTearMsg.lsp_id, ))
+            logging.info('%s-lsp_psb(id: %s) successfully tear by pathTear'%(self._hostname, pathTearMsg.lsp_id, ))
 
     def _resvTear(self, resvTearMsg):
         routeObject = rsvp.RouteObject(resvTearMsg.src_ip, resvTearMsg.dst_ip, resvTearMsg.route)
@@ -546,19 +548,23 @@ class OSU(object):
             if pre_iface:
                 if resvTearMsg.lsp_id in pre_iface.rsb:
                     rsvp.Resource.release(pre_iface, resvTearMsg)
+                    logging.info('%s-RSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
                 if resvTearMsg.lsp_id in pre_iface.psb:
                     pre_iface.psb.pop(resvTearMsg.lsp_id)
+                    logging.info('%s-PSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
         if resvTearMsg.dst_ip != self._hostname:
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
             if next_iface:
                 if resvTearMsg.lsp_id in next_iface.rsb:
                     rsvp.Resource.release(next_iface, resvTearMsg)
-                    next_iface.transmit(resvTearMsg)
-                if resvTearMsg.lsp_id in next_iface.rsb:
-                   next_iface.psb.pop(resvTearMsg.lsp_id) 
+                    logging.info('%s-RSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
+                if resvTearMsg.lsp_id in next_iface.psb:
+                    next_iface.psb.pop(resvTearMsg.lsp_id)
+                    logging.info('%s-PSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
+                next_iface.transmit(resvTearMsg) 
         else:
-            logging.info('%s-RSB of lsp_id(%s) successfully tear'%(self._hostname, resvTearMsg.lsp_id, ))
+            logging.info('%s-lsp_psb|rsb(id: %s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
 
 
 class Interface():
