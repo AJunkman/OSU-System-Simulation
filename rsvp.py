@@ -147,13 +147,14 @@ class Resource():
         interface.connNum += 1
 
     def release(interface, Msg):
-        interface.connection.pop(Msg.lsp_id)
-        interface.rsb.pop(Msg.lsp_id)
-        # 释放占用资源，可用带宽增加
-        interface.ava_bw = interface.ava_bw + Msg.dataSize
-        # 不可用带宽减少
-        interface.use_bw = interface.use_bw - Msg.dataSize
-        interface.connNum -= 1
+        if Msg.lsp_id in interface.connection:
+            # 释放占用资源，可用带宽增加
+            interface.ava_bw = interface.ava_bw + interface.connection[Msg.lsp_id].bandWidth
+            # 不可用带宽减少
+            interface.use_bw = interface.use_bw - interface.connection[Msg.lsp_id].bandWidth
+            interface.connection.pop(Msg.lsp_id)
+            interface.connNum -= 1
+        interface.rsb.pop(Msg.lsp_id) 
 
 
 
