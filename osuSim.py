@@ -82,12 +82,14 @@ class RxProtocol(asyncio.Protocol):
         elif 'msg_type' in packet.keys():
             # 判断是PathMsg
             if packet['msg_type'] == '0x01':
+                # logging.info('%s-********Received data: %s '%(self.osu._hostname, packet))
                 pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['dataSize'])
                 pathMsg.lsp_id = packet['lsp_id']
                 pathMsg.route = packet['route']
                 self.osu._path(pathMsg)
             # 判断是ResvMsg
             elif packet['msg_type'] == '0x02':
+                # logging.info('%s-########Received data: %s '%(self.osu._hostname, packet))
                 resvMsg = rsvp.ResvMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['dataSize'])
                 resvMsg.route = packet['route']
                 self.osu._resv(resvMsg)
@@ -389,6 +391,7 @@ class OSU(object):
             t.start()
 
     def _createConnTest(self):
+        
         for dst in self.shortestPath.keys():
             dataSize = random.randint(2, 10000)
             pathMsg = rsvp.PathMsg(self._hostname, dst, dataSize)
