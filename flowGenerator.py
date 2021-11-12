@@ -1,8 +1,6 @@
 import random
 import time
 
-from osuSim import OSU
-
 BANDWIDTH_UP_LIMIT = 100000
 
 class flow():
