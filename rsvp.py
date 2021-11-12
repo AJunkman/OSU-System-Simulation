@@ -90,14 +90,6 @@ class RouteObject():
         prev_hop = self.path[current_hop_id - 1]
         return prev_hop
 
-class Connection():
-
-    def __init__(self, src_ip, dst_ip, bandWidth, route):
-        self.src_ip = src_ip
-        self.dst_ip = dst_ip
-        self.bandWidth = bandWidth
-        self.path = route
-
 class PSB():
 
     def __init__(self, lsp_id, prv_hop, interface):
@@ -114,6 +106,13 @@ class RSB():
         self.dataSize = dataSize
         self.interface = interface
 
+class Connection():
+
+    def __init__(self, src_ip, dst_ip, bandWidth, route):
+        self.src_ip = src_ip
+        self.dst_ip = dst_ip
+        self.bandWidth = bandWidth
+        self.path = route
 
 class State_Block():
 
@@ -138,22 +137,16 @@ class Resource():
 
     def reservation(interface, resvMsg):
         conn = Connection(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.dataSize, resvMsg.route)
-        interface.connection[resvMsg.lsp_id] = conn
-        # 预留资源，可用带宽减少
-        interface.ava_bw = interface.ava_bw - resvMsg.dataSize
-        # 不可用带宽增加
-        interface.use_bw = interface.use_bw + resvMsg.dataSize
-        # 端口创建的连接数增加
-        interface.connNum += 1
+        if interface.conn_insert(resvMsg.lsp_id, conn):         
+            # 预留资源，可用带宽减少
+            interface.ava_bw = interface.ava_bw - resvMsg.dataSize
+            interface.use_bw = interface.use_bw + resvMsg.dataSize
 
     def release(interface, Msg):
-        if Msg.lsp_id in interface.connection:
+        if interface.conn_del(Msg.lsp_id):
             # 释放占用资源，可用带宽增加
             interface.ava_bw = interface.ava_bw + interface.connection[Msg.lsp_id].bandWidth
-            # 不可用带宽减少
             interface.use_bw = interface.use_bw - interface.connection[Msg.lsp_id].bandWidth
-            interface.connection.pop(Msg.lsp_id)
-            interface.connNum -= 1
         interface.rsb.pop(Msg.lsp_id) 
 
 

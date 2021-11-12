@@ -623,6 +623,46 @@ class Interface():
         change_thread.start()
         monitor_thread.start()
 
+    # 连接管理-插入连接
+    def conn_insert(self, lsp_id, conn):
+        if lsp_id not in self.connection:
+            self.connection[lsp_id] = conn
+            self.connNum += 1
+            return True
+        else:
+            return False
+
+    # 连接管理-删除连接
+    def conn_del(self, lsp_id):
+        if lsp_id in self.connection:
+            del self.connection[lsp_id]
+            self.connNum -= 1
+            return True
+        else:
+            return False
+
+    # 连接管理-修改连接
+    def conn_update(self, lsp_id, conn):
+        if lsp_id in self.connection:
+            self.connection[lsp_id] = conn
+            return True
+        else:
+            return False
+
+    # 连接管理-查询单条连接
+    def conn_find(self, lsp_id):
+        if lsp_id in self.connection:
+            return self.connection[lsp_id]
+        else:
+            return False
+
+    # 连接管理-查询所有连接
+    def conn_find(self, lsp_id):
+        if self.connection:
+            return self.connection
+        else:
+            return False
+
 
 def sim_run(conf_file_path):
     log.start_thread_logging()
