@@ -24,7 +24,7 @@ class flowGenerator():
         src_ip = current_ip
         OSU_ip = ['OSU1', 'OSU2', 'OSU3', 'OSU4', 'OSU5']
         OSU_ip.remove(src_ip)
-        for i in range(random.randint(0, len(OSU_ip))):
+        for i in range(random.randint(0, 20)):
             dst_ip = OSU_ip[random.randint(0, len(OSU_ip)-1)]
             bandwidth = random.randint(2, 1250)
             conn_num = random.randint(80, 200)
@@ -34,8 +34,12 @@ class flowGenerator():
             flows.append(f)
         return flows
 
-# if __name__ == '__main__':
-#    current_ip = 'OSU1'
-#    flows = flowGenerator.generator(current_ip)
+if __name__ == '__main__':
+    while True:
+        # print(time.asctime( time.localtime(time.time()) ))
+        current_ip = 'OSU1'
+        flows = flowGenerator.generator(current_ip)
+        print(flows)
+        time.sleep(1)
 #    for i in range(len(flows)):
 #        flows[i].print()
