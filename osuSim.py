@@ -23,6 +23,9 @@ class RepeatingTimer(Thread):
         self.callback = callback
         self.args = args
 
+
+        
+
     def run(self):
         while not self.stop_event.wait(self.interval):
             if self.args:
@@ -85,7 +88,6 @@ class RxProtocol(asyncio.Protocol):
                 # logging.info('%s-********Received data: %s '%(self.osu._hostname, packet))
                 pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['dataSize'])
                 pathMsg.lsp_id = packet['lsp_id']
-                print(pathMsg.lsp_id)
                 pathMsg.route = packet['route']
                 self.osu._path(pathMsg)
             # 判断是ResvMsg
