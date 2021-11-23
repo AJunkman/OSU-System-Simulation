@@ -9,12 +9,13 @@ import random
 import threading
 import logging
 from threading import *
+import functools
 
 # 项目模块
 import ospf
 import rsvp
 import log
-import ConnectServer  #!!!! ConnectServer，用于和client通信
+import connectServer  #!!!! connectServer，用于和client通信
 
 
 # 重写Thread中的方法，实现多定时任务不间断执行
@@ -111,19 +112,7 @@ class RxProtocol(asyncio.Protocol):
                 resvTearMsg = rsvp.ResvTearMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['route'])
                 self.osu._resvTear(resvTearMsg)
             else:
-                pass
-#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
-#  代码修改的地方
-#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
-        # NetManagMs包处理 (网络连接管理)
-        elif 'conn_msg_type' in packet.keys():          
-            # 判断是add_connect
-            if packet['conn_msg_type'] == '0x01': 
-                pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['bandwidth'])
-                pathMsg.set_lsp_id()                                    # 设置LSP标识符（LSP ID）：随机
-                pathMsg.route = self.osu.shortestPath[packet['dst_ip']] # 根据目的地址dst，计算最短路径
-                self.osu._path(pathMsg)        
-#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………            
+                pass         
         else:
             pass
 
@@ -182,10 +171,24 @@ class RoutingTable(list): # RoutingTable[Route1, Route2...]
         del self[:]
 
 
+class Control(object):
+
+    def creat_conn(osu, packet):
+        pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['bandwidth'])
+        pathMsg.set_lsp_id()                                    # 设置LSP标识符（LSP ID）：随机
+        pathMsg.route = osu.shortestPath[packet['dst_ip']] # 根据目的地址dst，计算最短路径
+        osu._path(pathMsg)
+    
+    def tear_conn(osu, packet):
+        pass
+
+
+
 class OSU(object):
 
-    def __init__(self, hostname):
+    def __init__(self, hostname, webSocket_port):
         self._hostname = hostname
+        self.webSocket_port = webSocket_port
         self._table = RoutingTable()
         self._lsdb = ospf.Database()
         self._interfaces = {}
@@ -387,29 +390,30 @@ class OSU(object):
     def IfaceRx(self, loop, name):
         #为子线程设置自己的事件循环
         asyncio.set_event_loop(loop)
-#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
-#  代码修改的地方
-#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
-        # 对不同类型的OSU端口调用不同的消息接收协议
-        if name=="Server":   #
-            start_server = websockets.serve(
-                ConnectServer.ConServer_logic, 
-                "localhost", self._interfaces[name].port)
-            asyncio.get_event_loop().run_until_complete(start_server)
-            asyncio.get_event_loop().run_forever()
-        else:
-            async def init_rx_server():
-                # OSU调用消息接收协议：--(OSU, name)
-                server = await loop.create_server(
-                     lambda: RxProtocol(self, name),  
-                     '127.0.0.1', self._interfaces[name].port)
-                async with server:
-                     await server.serve_forever()
-            future = asyncio.gather(init_rx_server())
-            loop.run_until_complete(future)
-#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
+        async def init_rx_server():
+            # OSU调用消息接收协议：--(OSU, name)
+            server = await loop.create_server(
+                    lambda: RxProtocol(self, name),  
+                    '127.0.0.1', self._interfaces[name].port)
+            async with server:
+                    await server.serve_forever()
+        future = asyncio.gather(init_rx_server())
+        loop.run_until_complete(future)
+
+    def ControlPortRx(self, loop):
+        asyncio.set_event_loop(loop)
+        start_server = websockets.serve(
+            functools.partial(connectServer.ConServer_logic, self), 
+            "localhost", self.webSocket_port)
+        asyncio.get_event_loop().run_until_complete(start_server)
+        asyncio.get_event_loop().run_forever()
 
     def start(self):
+        # 启动控制端口
+        loop = asyncio.new_event_loop()
+        thread = threading.Thread(target=self.ControlPortRx, args=(loop,))
+        thread.daemon = True
+        thread.start()
         # 启动定时任务
         for t in self._timers.values():
             t.start()
@@ -508,7 +512,7 @@ class OSU(object):
                         resvErrMsg.route.reverse()
                         self._resvErr(resvErrMsg)
             else:
-                conn = rsvp.Connection(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.dataSize, resvMsg.route)
+                conn = rsvp.Connection(resvMsg.dst_ip, resvMsg.src_ip, resvMsg.dataSize, resvMsg.route)
                 if pre_iface.conn_insert(resvMsg.lsp_id, conn):
                     logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, resvMsg.lsp_id, ))
                     logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, resvMsg.dataSize, resvMsg.dst_ip, resvMsg.src_ip))                
@@ -707,7 +711,8 @@ def sim_run(conf_file_path):
     cp = configparser.ConfigParser()
     cp.read(conf_file_path)
     hostname = cp.get('Local','hostname')
-    osu = OSU(hostname)
+    webSocket_port =  cp.get('WebSocket_port','port')
+    osu = OSU(hostname, webSocket_port)
 
     ifaces = [i for i in cp.sections() if i.startswith('Local:')]
     for iface in ifaces:

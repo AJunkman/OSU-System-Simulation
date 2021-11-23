@@ -103,10 +103,10 @@ class PSB():
 
 class RSB():
 
-    def __init__(self, lsp_id, next_hop, dataSize, interface):
+    def __init__(self, lsp_id, next_hop, bandWidth, interface):
         self.lsp_id = lsp_id
         self.next_hop = next_hop
-        self.dataSize = dataSize
+        self.bandWidth = bandWidth
         self.interface = interface
 
 class Connection():
