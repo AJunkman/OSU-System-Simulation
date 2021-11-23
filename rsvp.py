@@ -2,36 +2,45 @@ import random
 import time
 import uuid
 
+CREATE_CONN_INTERVAL = 15  # 15 seconds
+K_FACTOR = 3  # suggestion value
+# REFRESH_TIME = 30  # seconds
+REFRESH_TIME = 10
+CLEANUP_TIME = int((K_FACTOR + 0.5) * 1.5 * REFRESH_TIME)  # seconds
 
-CREATE_CONN_INTERVAL = 15 # 15 seconds
 
 class PathMsg:
-    
-    def __init__(self, src_ip, dst_ip, dataSize):
+
+    def __init__(self, src_ip, dst_ip, request_bw):
         self.msg_type = '0x01'
         self.lsp_id = None
-        
+
         self.src_ip = src_ip
         self.dst_ip = dst_ip
         self.tos = None
-        self.dataSize = dataSize
+        self.request_bw = request_bw
         self.route = None
+        self.time_value = None
 
-    def set_lsp_id(self):
+    def set_lsp_id(self, lsp_id=None):
         # random.seed(time.time())
         # self.lsp_id = random.random()       
-        self.lsp_id = str(uuid.uuid1())
+        self.lsp_id = str(uuid.uuid1()) if lsp_id is None else lsp_id
+
+    def set_time_value(self, time_value):
+        self.time_value = time_value
 
 class ResvMsg:
 
-    def __init__(self, lsp_id, src_ip, dst_ip, dataSize):
+    def __init__(self, lsp_id, src_ip, dst_ip, request_bw):
         self.msg_type = '0x02'
         self.lsp_id = lsp_id
         self.src_ip = src_ip
         self.dst_ip = dst_ip
-        self.dataSize = dataSize
+        self.request_bw = request_bw
         self.route = None
         self.style = None
+
 
 class PathErrMsg():
 
@@ -64,6 +73,7 @@ class PathTearMsg():
         self.dst_ip = dst_ip
         self.route = route
 
+
 class ResvTearMsg():
 
     def __init__(self, lsp_id, src_ip, dst_ip, route):
@@ -93,6 +103,7 @@ class RouteObject():
         prev_hop = self.path[current_hop_id - 1]
         return prev_hop
 
+
 class PSB():
 
     def __init__(self, lsp_id, prv_hop, interface):
@@ -103,58 +114,55 @@ class PSB():
 
 class RSB():
 
-    def __init__(self, lsp_id, next_hop, dataSize, interface):
+    def __init__(self, lsp_id, next_hop, request_bw, interface):
         self.lsp_id = lsp_id
         self.next_hop = next_hop
-        self.dataSize = dataSize
+        self.request_bw = request_bw
         self.interface = interface
+
 
 class Connection():
 
-    def __init__(self, src_ip, dst_ip, bandWidth, route):
+    def __init__(self, src_ip, dst_ip, request_bw, route):
         self.src_ip = src_ip
         self.dst_ip = dst_ip
-        self.bandWidth = bandWidth
+        self.request_bw = request_bw
         self.path = route
         self.real_bw = []
+
 
 class State_Block():
 
     def creatPSB(pathMsg, hop, pre_iface, iface):
         # 检查端口的资源是否够用
-        if pathMsg.dataSize < iface.ava_bw:
+        if pathMsg.request_bw < iface.ava_bw:
             # 资源充足，将路径状态信息保存在psb中
             psb = PSB(pathMsg.lsp_id, hop, pre_iface)
             iface.psb[pathMsg.lsp_id] = psb
             return psb
 
     def creatRSB(resvMsg, hop, pre_iface, iface):
-        # if resvMsg.dataSize < iface.ava_bw and iface.psb[resvMsg.lsp_id].prv_hop==hop:
-        if resvMsg.dataSize < iface.ava_bw:
+        # if resvMsg.request_bw < iface.ava_bw and iface.psb[resvMsg.lsp_id].prv_hop==hop:
+        if resvMsg.request_bw < iface.ava_bw:
             # # 资源可用，将资源状态保存在rsb中，并为连接预留资源
-            rsb = RSB(resvMsg.lsp_id, hop, resvMsg.dataSize, pre_iface)
+            rsb = RSB(resvMsg.lsp_id, hop, resvMsg.request_bw, pre_iface)
             iface.rsb[resvMsg.lsp_id] = rsb
             Resource.reservation(iface, resvMsg)
             return rsb
+
 
 # 资源管理
 class Resource():
 
     def reservation(interface, resvMsg):
-        # conn = Connection(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.dataSize, resvMsg.route)
+        # conn = Connection(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.request_bw, resvMsg.route)
         # if interface.conn_insert(resvMsg.lsp_id, conn):         
         # 预留资源，可用带宽减少
-        interface.ava_bw = interface.ava_bw - resvMsg.dataSize
-        interface.use_bw = interface.use_bw + resvMsg.dataSize
+        interface.ava_bw = interface.ava_bw - resvMsg.request_bw
+        interface.use_bw = interface.use_bw + resvMsg.request_bw
 
     def release(interface, Msg):
         # if interface.conn_del(Msg.lsp_id):
         # 释放占用资源，可用带宽增加
         interface.ava_bw = interface.ava_bw + interface.connection[Msg.lsp_id].bandWidth
         interface.use_bw = interface.use_bw - interface.connection[Msg.lsp_id].bandWidth
-
-
-
-
-
-

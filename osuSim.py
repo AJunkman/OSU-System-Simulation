@@ -26,8 +26,6 @@ class RepeatingTimer(Thread):
         self.callback = callback
         self.args = args
 
-        
-
     def run(self):
         while not self.stop_event.wait(self.interval):
             if self.args:
@@ -88,14 +86,14 @@ class RxProtocol(asyncio.Protocol):
             # 判断是PathMsg
             if packet['msg_type'] == '0x01':
                 # logging.info('%s-********Received data: %s '%(self.osu._hostname, packet))
-                pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['dataSize'])
+                pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['request_bw'])
                 pathMsg.lsp_id = packet['lsp_id']
                 pathMsg.route = packet['route']
                 self.osu._path(pathMsg)
             # 判断是ResvMsg
             elif packet['msg_type'] == '0x02':
                 # logging.info('%s-########Received data: %s '%(self.osu._hostname, packet))
-                resvMsg = rsvp.ResvMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['dataSize'])
+                resvMsg = rsvp.ResvMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['request_bw'])
                 resvMsg.route = packet['route']
                 self.osu._resv(resvMsg)
             elif packet['msg_type'] == '0x03':
@@ -209,7 +207,44 @@ class OSU(object):
         self._timers['lsdb'] = mktimer(ospf.AGE_INTERVAL, self._update_lsdb)
         self._timers['refresh_lsa'] = mktimer(ospf.LS_REFRESH_TIME, self._refresh_lsa)
         self._timers['hello'] = mktimer(ospf.HELLO_INTERVAL, self._hello)
-        #self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
+        self._timers['rsvp_refresh'] = mktimer(rsvp.REFRESH_TIME, self._rsvp_refresh)
+        self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
+
+    def _rsvp_refresh(self):
+        # 该函数功能：1. 遍历PSB，选出以本节点为源节点的连接；2. 进入到Path Refresh流程。
+        # 遍历所有已启用端口，检查存储其中的PSB
+        for iface_name in self._interfaces:
+            interface = self._interfaces[iface_name]
+            for uuid in interface.connection:
+                # 若该连接起源于本机
+                if interface.connection[uuid].src_ip == self._hostname:
+                    out_iface_list = [interface.rsb[uuid].interface]
+                    self._rsvp_path_refresh(interface.psb[uuid], interface.connection[uuid], out_iface_list)
+                    logging.info("{}-****Time to Refresh****uuid is {}".format(self._hostname, uuid))
+        return None
+
+    def _rsvp_path_refresh(self, psb, connection, out_iface_list):
+        """
+        两种情况进入PATH REFRESH
+        1 - refresh timer 到期
+        2 - 在PATH消息处理过程中，Path_Refresh_Needed标志位被设置
+        步骤：
+        1 - 初始化一个PATH消息
+        2 - 设置TIME_VALUE
+        3 - 将PSB中的发送方描述符添加至PATH消息中
+        4 - 设PHOP的值为本机端口地址
+        5 - 将该PATH消息传送至对应（多个）端口
+        """
+        # 1 - 初始化一个PATH消息
+        PATH_MSG = rsvp.PathMsg(connection.src_ip, connection.dst_ip, connection.request_bw)
+        # 2 - 设置TIME_VALUE
+        PATH_MSG.set_time_value(rsvp.REFRESH_TIME)
+        # 3 - 将PSB中的发送方描述符添加至PATH消息中
+        PATH_MSG.set_lsp_id(psb.lsp_id)
+        # 5 - 将该PATH消息传送至对应（多个）端口
+        for iface in out_iface_list:
+            iface.transmit(PATH_MSG)
+        return None
 
     def _update_lsdb(self):
         flushed = self._lsdb.update()
@@ -423,8 +458,8 @@ class OSU(object):
     def _createConnTest(self):
         
         for dst in self.shortestPath.keys():
-            dataSize = random.randint(2, 10000)
-            pathMsg = rsvp.PathMsg(self._hostname, dst, dataSize)
+            request_bw = random.randint(2, 10000)
+            pathMsg = rsvp.PathMsg(self._hostname, dst, request_bw)
             pathMsg.set_lsp_id()
             pathMsg.route = self.shortestPath[dst]
             self._path(pathMsg)
@@ -462,7 +497,7 @@ class OSU(object):
             # 是最后一跳，触发_pathResv方法，开始向上游逐一回复resvMsg
             else:
                 # 封装resvMsg，逆着回发消息，源地址和目的地址调换位置赋值
-                resvMsg = rsvp.ResvMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, pathMsg.dataSize)
+                resvMsg = rsvp.ResvMsg(pathMsg.lsp_id, pathMsg.dst_ip, pathMsg.src_ip, pathMsg.request_bw)
                 # 原来的路径应当逆序赋值给resvMsg中的路由
                 resvMsg.route = pathMsg.route
                 resvMsg.route.reverse()
@@ -508,10 +543,10 @@ class OSU(object):
                         resvErrMsg.route.reverse()
                         self._resvErr(resvErrMsg)
             else:
-                conn = rsvp.Connection(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.dataSize, resvMsg.route)
+                conn = rsvp.Connection(resvMsg.dst_ip, resvMsg.src_ip, resvMsg.request_bw, resvMsg.route)
                 if pre_iface.conn_insert(resvMsg.lsp_id, conn):
                     logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, resvMsg.lsp_id, ))
-                    logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, resvMsg.dataSize, resvMsg.dst_ip, resvMsg.src_ip))                
+                    logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, resvMsg.request_bw, resvMsg.dst_ip, resvMsg.src_ip))
         else:
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
@@ -705,7 +740,7 @@ def sim_run(conf_file_path):
     log.start_thread_logging()
     AdjList = {}
     cp = configparser.ConfigParser()
-    cp.read(conf_file_path)
+    cp.read(conf_file_path, encoding='utf-8')
     hostname = cp.get('Local','hostname')
     osu = OSU(hostname)
 
