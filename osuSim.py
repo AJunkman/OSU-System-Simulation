@@ -1,5 +1,6 @@
 # 系统模块
 import sys
+import websockets
 import socket
 import time
 import configparser
@@ -13,6 +14,8 @@ from threading import *
 import ospf
 import rsvp
 import log
+import ConnectServer  #!!!! ConnectServer，用于和client通信
+
 
 # 重写Thread中的方法，实现多定时任务不间断执行
 class RepeatingTimer(Thread):
@@ -22,7 +25,6 @@ class RepeatingTimer(Thread):
         self.interval = interval
         self.callback = callback
         self.args = args
-
 
         
 
@@ -110,6 +112,18 @@ class RxProtocol(asyncio.Protocol):
                 self.osu._resvTear(resvTearMsg)
             else:
                 pass
+#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
+#  代码修改的地方
+#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
+        # NetManagMs包处理 (网络连接管理)
+        elif 'conn_msg_type' in packet.keys():          
+            # 判断是add_connect
+            if packet['conn_msg_type'] == '0x01': 
+                pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['bandwidth'])
+                pathMsg.set_lsp_id()                                    # 设置LSP标识符（LSP ID）：随机
+                pathMsg.route = self.osu.shortestPath[packet['dst_ip']] # 根据目的地址dst，计算最短路径
+                self.osu._path(pathMsg)        
+#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………            
         else:
             pass
 
@@ -195,7 +209,7 @@ class OSU(object):
         self._timers['lsdb'] = mktimer(ospf.AGE_INTERVAL, self._update_lsdb)
         self._timers['refresh_lsa'] = mktimer(ospf.LS_REFRESH_TIME, self._refresh_lsa)
         self._timers['hello'] = mktimer(ospf.HELLO_INTERVAL, self._hello)
-        self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
+        #self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
 
     def _update_lsdb(self):
         flushed = self._lsdb.update()
@@ -373,14 +387,27 @@ class OSU(object):
     def IfaceRx(self, loop, name):
         #为子线程设置自己的事件循环
         asyncio.set_event_loop(loop)
-        async def init_rx_server():
-            server = await loop.create_server(
-                lambda: RxProtocol(self, name),
-                '127.0.0.1', self._interfaces[name].port)
-            async with server:
-                await server.serve_forever()
-        future = asyncio.gather(init_rx_server())
-        loop.run_until_complete(future)
+#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
+#  代码修改的地方
+#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
+        # 对不同类型的OSU端口调用不同的消息接收协议
+        if name=="Server":   #
+            start_server = websockets.serve(
+                ConnectServer.ConServer_logic, 
+                "localhost", self._interfaces[name].port)
+            asyncio.get_event_loop().run_until_complete(start_server)
+            asyncio.get_event_loop().run_forever()
+        else:
+            async def init_rx_server():
+                # OSU调用消息接收协议：--(OSU, name)
+                server = await loop.create_server(
+                     lambda: RxProtocol(self, name),  
+                     '127.0.0.1', self._interfaces[name].port)
+                async with server:
+                     await server.serve_forever()
+            future = asyncio.gather(init_rx_server())
+            loop.run_until_complete(future)
+#…………………………………………………………………………………………………………………………………………………………………………………………………………………………………………
 
     def start(self):
         # 启动定时任务
