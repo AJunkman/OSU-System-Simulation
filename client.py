@@ -11,6 +11,16 @@ import websockets
 
 # 全局变量
 Pack_Number=0
+# 字典：存储所有业务连接
+"""
+car_list = []
+Service_Connection_dict={ 'uuid': 'tkhllluuuid', 
+                          'src_ip': 'OSU3', 
+                          'dst_ip': 'OSU5', 
+                          'bandwidth': 520,
+                          'real_bandwidth': 123
+                        }
+"""
 
 # 1、数据包结构声明
 class NetManagMsg:
