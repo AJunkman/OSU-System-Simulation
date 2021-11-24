@@ -172,7 +172,7 @@ class RoutingTable(list): # RoutingTable[Route1, Route2...]
 class Control(object):
 
     def creat_conn(osu, packet):
-        pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], packet['bandwidth'])
+        pathMsg = rsvp.PathMsg(packet['src_ip'], packet['dst_ip'], int(packet['bandwidth']))
         pathMsg.set_lsp_id()                                    # 设置LSP标识符（LSP ID）：随机
         pathMsg.route = osu.shortestPath[packet['dst_ip']] # 根据目的地址dst，计算最短路径
         osu._path(pathMsg)
@@ -211,14 +211,14 @@ class OSU(object):
         self._timers['refresh_lsa'] = mktimer(ospf.LS_REFRESH_TIME, self._refresh_lsa)
         self._timers['hello'] = mktimer(ospf.HELLO_INTERVAL, self._hello)
         self._timers['rsvp_refresh'] = mktimer(rsvp.REFRESH_TIME, self._rsvp_refresh)
-        self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
+        # self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
 
     def _rsvp_refresh(self):
         # 该函数功能：1. 遍历PSB，选出以本节点为源节点的连接；2. 进入到Path Refresh流程。
         # 遍历所有已启用端口，检查存储其中的PSB
         for iface_name in self._interfaces:
             interface = self._interfaces[iface_name]
-            for uuid in interface.connection:
+            for uuid in interface.connection.keys():
                 # 若该连接起源于本机
                 if interface.connection[uuid].src_ip == self._hostname:
                     out_iface_list = [interface.rsb[uuid].interface]
@@ -547,11 +547,7 @@ class OSU(object):
                         resvErrMsg.route.reverse()
                         self._resvErr(resvErrMsg)
             else:
-<<<<<<< HEAD
-                conn = rsvp.Connection(resvMsg.dst_ip, resvMsg.src_ip, resvMsg.dataSize, resvMsg.route)
-=======
                 conn = rsvp.Connection(resvMsg.dst_ip, resvMsg.src_ip, resvMsg.request_bw, resvMsg.route)
->>>>>>> 0931d9575d5f4d7a716f70a83d450044ef2ba4bd
                 if pre_iface.conn_insert(resvMsg.lsp_id, conn):
                     logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, resvMsg.lsp_id, ))
                     logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, resvMsg.request_bw, resvMsg.dst_ip, resvMsg.src_ip))

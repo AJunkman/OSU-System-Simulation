@@ -37,9 +37,7 @@ async def NetTransmit(websocket, packet):
      # websocket发送数据包
      packet = str(packet.__dict__)          #对象转字符串
      await websocket.send(packet.encode())  #字符串编码再发送
-     #server返回结果
-     recv_packet = await websocket.recv()   
-     print(f"{recv_packet}")
+
 
 
 # 3、设置websocket通信的服务器 IP、Port

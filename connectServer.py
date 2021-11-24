@@ -13,14 +13,14 @@ async def recv_client_msg(websocket, osu):
             if recv_packet['conn_msg_type'] == '0x01':
                 osuSim.Control.creat_conn(osu, recv_packet)
 
-        src_ip = recv_packet['src_ip']
-        dst_ip = recv_packet['dst_ip']
-        bandwidth = recv_packet['bandwidth']
-        Pack_Number = recv_packet['Pack_Number']
+        # src_ip = recv_packet['src_ip']
+        # dst_ip = recv_packet['dst_ip']
+        # bandwidth = recv_packet['bandwidth']
+        # Pack_Number = recv_packet['Pack_Number']
 
-        response_packet = f"{Pack_Number}、【增加业务】:  源地址{src_ip} 目的地址{dst_ip} 占用带宽{bandwidth}"
+        # response_packet = f"{Pack_Number}、【增加业务】:  源地址{src_ip} 目的地址{dst_ip} 占用带宽{bandwidth}"
         # print(f"\n{response_packet}")
-        await websocket.send(response_packet)
+        # await websocket.send(response_packet)
     except ConnectionClosed:
         pass
  

@@ -6,6 +6,7 @@ import log
 import osuSim
 
 
+log.config_root_logger()
 nums = [1, 2, 3, 4, 5]
 try:
     for i in nums:
