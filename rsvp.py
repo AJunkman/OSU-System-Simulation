@@ -3,10 +3,11 @@ import time
 import uuid
 
 CREATE_CONN_INTERVAL = 15  # 15 seconds
-K_FACTOR = 3  # suggestion value
-# REFRESH_TIME = 30  # seconds
-REFRESH_TIME = 10
-CLEANUP_TIME = int((K_FACTOR + 0.5) * 1.5 * REFRESH_TIME)  # seconds
+K_FACTOR = 3            # suggestion value
+# REFRESH_PERIOD = 30   # seconds
+REFRESH_PERIOD = 10     # seconds, for test only
+LIFE_TIME = int((K_FACTOR + 0.5) * 1.5 * REFRESH_PERIOD)  # seconds
+CLEANUP_INTERVAL = 1    # seconds
 
 
 class PathMsg:
@@ -20,7 +21,7 @@ class PathMsg:
         self.tos = None
         self.request_bw = request_bw
         self.route = None
-        self.time_value = None
+        self.time_value = None      # 记录REFRESH_PERIOD
 
     def set_lsp_id(self, lsp_id=None):
         # random.seed(time.time())
@@ -29,6 +30,9 @@ class PathMsg:
 
     def set_time_value(self, time_value):
         self.time_value = time_value
+
+    def set_route(self, route):
+        self.route = route
 
 class ResvMsg:
 
@@ -110,6 +114,7 @@ class PSB():
         self.lsp_id = lsp_id
         self.prv_hop = prv_hop
         self.interface = interface
+        self.cleanup = 0
 
 
 class RSB():
@@ -119,6 +124,7 @@ class RSB():
         self.next_hop = next_hop
         self.request_bw = request_bw
         self.interface = interface
+        self.cleanup = 0
 
 
 class Connection():
@@ -149,6 +155,18 @@ class State_Block():
             iface.rsb[resvMsg.lsp_id] = rsb
             Resource.reservation(iface, resvMsg)
             return rsb
+
+    @staticmethod
+    def del_psb(iface, uuid):
+        if uuid in iface.psb:
+            del iface.psb[uuid]
+
+    @staticmethod
+    def del_rsb(iface, uuid):
+        if uuid in iface.rsb:
+            iface.ava_bw += iface.rsb[uuid].request_bw
+            iface.use_bw -= iface.rsb[uuid].request_bw
+            del iface.rsb[uuid]
 
 
 # 资源管理
