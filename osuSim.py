@@ -611,11 +611,8 @@ class OSU(object):
                         resvErrMsg.route.reverse()
                         self._resvErr(resvErrMsg)
             else:
-<<<<<<< HEAD
-                conn = rsvp.Connection(resvMsg.dst_ip, resvMsg.src_ip, resvMsg.dataSize, resvMsg.route)
-=======
                 conn = rsvp.Connection(resvMsg.dst_ip, resvMsg.src_ip, resvMsg.request_bw, resvMsg.route)
->>>>>>> 0931d9575d5f4d7a716f70a83d450044ef2ba4bd
+
                 if pre_iface.conn_insert(resvMsg.lsp_id, conn):
                     logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, resvMsg.lsp_id, ))
                     logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, resvMsg.request_bw, resvMsg.dst_ip, resvMsg.src_ip))
