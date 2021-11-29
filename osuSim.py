@@ -210,14 +210,9 @@ class OSU(object):
         self._timers['lsdb'] = mktimer(ospf.AGE_INTERVAL, self._update_lsdb)
         self._timers['refresh_lsa'] = mktimer(ospf.LS_REFRESH_TIME, self._refresh_lsa)
         self._timers['hello'] = mktimer(ospf.HELLO_INTERVAL, self._hello)
-<<<<<<< HEAD
-        self._timers['rsvp_refresh'] = mktimer(rsvp.REFRESH_TIME, self._rsvp_refresh)
-        # self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
-=======
         self._timers['rsvp_refresh'] = mktimer(rsvp.REFRESH_PERIOD, self._rsvp_refresh_timer)
         # self._timers['rsvp_cleanup'] = mktimer(rsvp.CLEANUP_INTERVAL, self._rsvp_cleanup_timer)
         self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
->>>>>>> 8cec0a4d6b7448fd4ab398aa7c1574c5aebc3276
 
     def _rsvp_cleanup_timer(self):
         # 该函数功能：1. 遍历PSB、RSB，选出非本机生成的连接；2. 每次对cleanup属性加1
@@ -632,10 +627,6 @@ class OSU(object):
                         self._resvErr(resvErrMsg)
             else:
                 conn = rsvp.Connection(resvMsg.dst_ip, resvMsg.src_ip, resvMsg.request_bw, resvMsg.route)
-<<<<<<< HEAD
-=======
-
->>>>>>> 8cec0a4d6b7448fd4ab398aa7c1574c5aebc3276
                 if pre_iface.conn_insert(resvMsg.lsp_id, conn):
                     logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, resvMsg.lsp_id, ))
                     logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, resvMsg.request_bw, resvMsg.dst_ip, resvMsg.src_ip))
