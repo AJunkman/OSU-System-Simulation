@@ -274,6 +274,9 @@ class OSU(object):
         return None
     
     def _rsvp_resv_refrsh(self, spec_rsb, spec_conn, out_iface_list):
+        """
+        可由刷新定时器、PATH消息、RESV消息、RTEAR消息、RERR消息触发
+        """
         # 初始化一个resv消息
         RESV_MSG = rsvp.ResvMsg(spec_conn.dst_ip, spec_conn.scr_ip, spec_conn.request_bw)
         # 设置resv消息的TIME_VALUE
@@ -601,6 +604,28 @@ class OSU(object):
 
     # 处理resvMsg，向上游沿途预留资源
     def _resv(self, resvMsg):
+        """
+        RESV Msg 处理流程（详见RFC P9）：
+        1 - 初始化 Refresh_PHOP_list 为空列表， Resv_Refresh_Needed 及 NeworMod 标志为 False，用于控制即刻保留刷新
+        2 - 确定输出端口
+        3 - 检查路径状态，是否存在PSB
+        3.1 - 无PSB，触发RERR Msg，“No path information"，报文丢弃并返回
+        3.2 - 存在PSB，SrcPorts不同，触发RERR Msg，”Ambiguous Path“，丢弃并返回
+        3.3 - 将PSB的PHOP添加至Refresh_PHOP_list
+        4 - 检查RSB，若格式错误，触发RERR Msg，”Conflicting Style“，丢弃并返回
+        5 - 搜索或建立RSB
+        5.1 - 若RSB为新，设置NHOP、端口（其余见RFC 2209 P11），设置NeworMod为True
+        5.2 - 若RSB已存，更新RSB信息，设置NeworMod为True
+        6 - RSB中的cleanup赋值为0
+        7 - 检查NeworMod标志
+        7.1 - 若为False，跳过
+        7.2 - 若为True，触发 UPDATE TRAFFIC CONTROL事件。
+            7.2.1 - 若返回修改traffic control state，设置Resv_Refresh_Needed为True，进入RESV_EVENT
+            7.2.2 - 若返回错误，撤销本次对RSB的所有操作
+        8 - 检查Resv_Refresh_Needed标志
+        8.1 - 若为True，触发 RESV REFRESH，发送至Refresh_PHOP_list
+        9 - 丢弃并返回
+        """
         routeObject = rsvp.RouteObject(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.route)
         if resvMsg.src_ip != self._hostname:
             prv_hop = routeObject.get_prev_hop(self._hostname)
@@ -693,6 +718,11 @@ class OSU(object):
             logging.info('%s-lsp_psb(id: %s) successfully tear by pathTear'%(self._hostname, pathTearMsg.lsp_id, ))
 
     def _resvTear(self, resvTearMsg):
+        """
+        RTEAR与RESV消息处理大致相同
+        1 - Resv_Refresh_Needed 初始化为 False，Refresh_PHOP_list 为空
+        2 -
+        """
         routeObject = rsvp.RouteObject(resvTearMsg.src_ip, resvTearMsg.dst_ip, resvTearMsg.route)
         if resvTearMsg.src_ip != self._hostname:
             prv_hop = routeObject.get_prev_hop(self._hostname)
