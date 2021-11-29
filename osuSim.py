@@ -249,6 +249,9 @@ class OSU(object):
                     self._rsvp_path_refresh(interface.psb[uuid], interface.connection[uuid], out_iface_list)
                     logging.info("{}-****Time to Refresh****uuid is {}, the rest of time is {}"
                                  .format(self._hostname, uuid, interface.psb[uuid].cleanup))
+                    self._rsvp_resv_refresh(interface.rsb[uuid], interface.connection[uuid], out_iface_list)
+                    logging.info("{}-****Time to Refresh****uuid is {}, the rest of time is {}"
+                                 .format(self._hostname, uuid, interface.rsb[uuid].cleanup))
         return None
 
     def _rsvp_path_refresh(self, spec_psb, spec_conn, out_iface_list):
@@ -273,6 +276,18 @@ class OSU(object):
         # 5 - 将该PATH消息传送至对应（多个）端口
         for iface in out_iface_list:
             iface.transmit(PATH_MSG)
+        return None
+    
+    def _rsvp_resv_refrsh(self, spec_rsb, spec_conn, out_iface_list):
+        # 初始化一个resv消息
+        RESV_MSG = rsvp.ResvMsg(spec_conn.dst_ip, spec_conn.scr_ip, spec_conn.request_bw)
+        # 设置resv消息的TIME_VALUE
+        RESV_MSG.set_time_value(rsvp.REFRESH_PERIOD)
+        # 将RSB中的发送方描述符添加至RESV消息中
+        RESV_MSG.set_lsp_id(spec_rsb.lsp_id)
+        RESV_MSG.set_route(spec_conn.resv)
+        for iface in out_iface_list:
+            iface.transmit(RESV_MSG)
         return None
 
     def _update_lsdb(self):

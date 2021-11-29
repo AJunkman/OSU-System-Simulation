@@ -45,6 +45,15 @@ class ResvMsg:
         self.route = None
         self.style = None
 
+    def set_lsp_id(self, lsp_id=None):
+        self.lsp_id = str(uuid.uuid1()) if lsp_id is None else lsp_id
+    
+    def set_time_value(self, time_value):
+        self.time_value = time_value
+    
+    def set_route(self, route):
+        self.route = route
+
 
 class PathErrMsg():
 
