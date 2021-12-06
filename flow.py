@@ -6,7 +6,7 @@ MAX_FLOW_NUMBER = 50
 BANDWIDTH_UP_LIMIT = 10000
 
 flowTable = []
-myLock = threading.Lock()
+# myLock = threading.Lock()
 
 
 class Flow:
@@ -28,7 +28,7 @@ def generator():
 
     while True:
         if len(flowTable) <= MAX_FLOW_NUMBER:
-            myLock.acquire()
+            # myLock.acquire()
             time.sleep(3)
             src_ip = OSU_ip[random.randint(0, 4)]
             OSU_ip.remove(src_ip)
@@ -37,7 +37,7 @@ def generator():
             flowTable.append(new_flow)
             # print(flowTable)
             OSU_ip.append(src_ip)
-            myLock.release()
+            # myLock.release()
         else:
             break
 
@@ -45,30 +45,31 @@ def generator():
 def updater():
     while True:
         # time.sleep(2)
-        myLock.acquire()
+        # myLock.acquire()
         for flow in flowTable:
             flow.update()
         # print(flowTable)
-        myLock.release()
+        # myLock.release()
 
 
 def bandwidth_request():
     while True:
-        myLock.acquire()
+        # myLock.acquire()
         for flow in flowTable:
-            if flow.connection_bandwidth <= flow.bandwidth: # 增大带宽
+            if flow.connection_bandwidth <= flow.bandwidth:  # 增大带宽
                 if flow.connection_bandwidth * 2 <= flow.bandwidth:
                     flow.connection_bandwidth *= 2
                 else:
-                    flow.connection_bandwidth += BANDWIDTH_UP_LIMIT/10
-            else:   # 减小带宽
-                if flow.connection_bandwidth - BANDWIDTH_UP_LIMIT/10 > 0:
-                    flow.connection_bandwidth -= BANDWIDTH_UP_LIMIT/10
+                    flow.connection_bandwidth += BANDWIDTH_UP_LIMIT / 10
+            else:  # 减小带宽
+                if flow.connection_bandwidth - BANDWIDTH_UP_LIMIT / 10 > 0:
+                    flow.connection_bandwidth -= BANDWIDTH_UP_LIMIT / 10
                 else:
                     flow.connection_bandwidth = 0
-        myLock.release()
+        # myLock.release()
+
+
 # def main():
-#
 #     flow_generate = threading.Thread(target=generator)
 #     flow_update = threading.Thread(target=updater)
 #
@@ -76,9 +77,6 @@ def bandwidth_request():
 #     flow_update.start()
 #
 #
-#
 # if __name__ == '__main__':
 #     main()
-#
-# # flow_generate.join()
-# # flow_update.join()
+
