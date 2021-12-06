@@ -4,6 +4,7 @@ import logging
 
 import log
 import osuSim
+import flow
 
 
 log.config_root_logger()
@@ -22,3 +23,18 @@ for str in nums:
                                 args=("topologies/osu{}.cfg".format(str),),
                                 name='OSU{}'.format(str)))
     thd[str-1].start()
+
+# 不断生成流量
+flow_generate = threading.Thread(target=flow.generator)
+
+# 更新对当前存在的流量带宽
+flow_update = threading.Thread(target=flow.updater)
+
+# 根据决策算法生成连接调整请求
+flow_request = threading.Thread(target=flow.bandwidth_request)
+
+flow_generate.start()
+flow_update.start()
+flow_request.start()
+
+
