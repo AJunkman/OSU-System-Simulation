@@ -20,7 +20,7 @@ class Flow:
 
     def update(self):
         self.timeStamp = time.time()
-        self.bandwidth = random.randint(0, BANDWIDTH_UP_LIMIT)
+        self.bandwidth = random.uniform(0, BANDWIDTH_UP_LIMIT)
 
 
 def generator():
@@ -33,7 +33,7 @@ def generator():
             src_ip = OSU_ip[random.randint(0, 4)]
             OSU_ip.remove(src_ip)
             dst_ip = OSU_ip[random.randint(0, 3)]
-            new_flow = Flow(time.time(), src_ip, dst_ip, random.randint(0, BANDWIDTH_UP_LIMIT))
+            new_flow = Flow(time.time(), src_ip, dst_ip, random.uniform(0, BANDWIDTH_UP_LIMIT))
             flowTable.append(new_flow)
             # print(flowTable)
             OSU_ip.append(src_ip)
@@ -62,7 +62,10 @@ def bandwidth_request():
                 else:
                     flow.connection_bandwidth += BANDWIDTH_UP_LIMIT/10
             else:   # 减小带宽
-                flow.connection_bandwidth -= BANDWIDTH_UP_LIMIT/10
+                if flow.connection_bandwidth - BANDWIDTH_UP_LIMIT/10 > 0:
+                    flow.connection_bandwidth -= BANDWIDTH_UP_LIMIT/10
+                else:
+                    flow.connection_bandwidth = 0
         myLock.release()
 # def main():
 #
