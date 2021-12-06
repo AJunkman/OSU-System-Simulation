@@ -61,8 +61,9 @@ def bandwidth_request():
                     flow.connection_bandwidth *= 2
                 else:
                     flow.connection_bandwidth += BANDWIDTH_UP_LIMIT/10
-            else:
+            else:   # 减小带宽
                 flow.connection_bandwidth -= BANDWIDTH_UP_LIMIT/10
+        myLock.release()
 # def main():
 #
 #     flow_generate = threading.Thread(target=generator)
