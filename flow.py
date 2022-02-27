@@ -55,7 +55,7 @@ def updater():
 def bandwidth_request():
     while True:
         # myLock.acquire()
-        for flow in flowTable:
+        for flow in flowTable:  
             if flow.connection_bandwidth <= flow.bandwidth:  # 增大带宽
                 if flow.connection_bandwidth * 2 <= flow.bandwidth:
                     flow.connection_bandwidth *= 2
