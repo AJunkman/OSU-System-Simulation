@@ -9,6 +9,7 @@ import flow
 
 log.config_root_logger()
 nums = [1, 2, 3, 4, 5]
+# nums = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 try:
     for i in nums:
         os.remove('log/OSU{}.log'.format(i))
