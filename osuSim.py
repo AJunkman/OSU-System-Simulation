@@ -703,6 +703,10 @@ class OSU(object):
             prv_hop = routeObject.get_prev_hop(self._hostname)
             pre_iface = self.find_iface(prv_hop)
             if pre_iface:
+                if pathTearMsg.lsp_id in pre_iface.rsb:
+                    rsvp.Resource.release(pre_iface, pathTearMsg)
+                    pre_iface.rsb.pop(pathTearMsg.lsp_id) 
+                    logging.info('%s-RSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
                 if pathTearMsg.lsp_id in pre_iface.psb:
                     pre_iface.psb.pop(pathTearMsg.lsp_id)
                     logging.info('%s-PSB of lsp_id(%s) successfully tear by pathTear'%(self._hostname, pathTearMsg.lsp_id, ))
@@ -710,6 +714,10 @@ class OSU(object):
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
             if next_iface:
+                if pathTearMsg.lsp_id in next_iface.rsb:
+                    rsvp.Resource.release(next_iface, pathTearMsg)
+                    next_iface.rsb.pop(pathTearMsg.lsp_id) 
+                    logging.info('%s-RSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
                 if pathTearMsg.lsp_id in next_iface.psb:
                     next_iface.psb.pop(pathTearMsg.lsp_id)
                     logging.info('%s-PSB of lsp_id(%s) successfully tear by pathTear'%(self._hostname, pathTearMsg.lsp_id, ))
