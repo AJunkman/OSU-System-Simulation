@@ -1,0 +1,3 @@
+flowTable = {}
+MAX_FLOW_NUMBER = 7
+BANDWIDTH_UP_LIMIT = 10000
