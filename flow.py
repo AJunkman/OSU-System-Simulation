@@ -74,7 +74,7 @@ def adjustment():
                     flowTable[key].connection_bandwidth -= BANDWIDTH_UP_LIMIT / 15
                 else:
                     flowTable[key].connection_bandwidth = 1
-            printFlow(flowTable)    # 此处改成调用socket接口
+            printFlow(flowTable[key])    # 此处改成调用socket接口
         # print("test")
         time.sleep(2)
 
