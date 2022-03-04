@@ -16,6 +16,7 @@ import ospf
 import rsvp
 import log
 import connectServer  #!!!! connectServer，用于和client通信
+import flowhead
 
 
 # 重写Thread中的方法，实现多定时任务不间断执行
@@ -819,6 +820,7 @@ class Interface():
     # 连接管理-插入连接
     def conn_insert(self, lsp_id, conn):
         if lsp_id not in self.connection:
+            flowhead.flowTable[lsp_id] = conn
             self.connection[lsp_id] = conn
             self.connNum += 1
             return True

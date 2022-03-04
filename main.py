@@ -28,7 +28,7 @@ for str in nums:
 # 不断生成流量
 flow_generate = threading.Thread(target=flow.generator)
 
-# 更新对当前存在的流量带宽
+# 更新当前存在的流量带宽
 flow_update = threading.Thread(target=flow.updater)
 
 # 根据决策算法生成连接调整请求

@@ -1,6 +1,7 @@
 import random
 import time
 import uuid
+import flowhead
 
 CREATE_CONN_INTERVAL = 15  # 15 seconds
 K_FACTOR = 3            # suggestion value
@@ -141,9 +142,9 @@ class Connection():
     def __init__(self, src_ip, dst_ip, request_bw, route):
         self.src_ip = src_ip
         self.dst_ip = dst_ip
-        self.request_bw = request_bw
+        self.bandwidth = request_bw
         self.path = route
-        self.real_bw = []
+        self.connection_bandwidth = random.uniform(flowhead.BANDWIDTH_UP_LIMIT/10 * 3, flowhead.BANDWIDTH_UP_LIMIT/10 * 7)
 
 
 class State_Block():
