@@ -25,17 +25,9 @@ for str in nums:
                                 name='OSU{}'.format(str)))
     thd[str-1].start()
 
-# 不断生成流量
-flow_generate = threading.Thread(target=flow.generator)
+# 带宽调整线程
+threading.Thread(target=flow.adjustment())
 
-# 更新当前存在的流量带宽
-flow_update = threading.Thread(target=flow.updater)
 
-# 根据决策算法生成连接调整请求
-flow_request = threading.Thread(target=flow.bandwidth_request)
-
-flow_generate.start()
-flow_update.start()
-flow_request.start()
 
 

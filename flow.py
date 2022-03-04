@@ -6,8 +6,9 @@ import rsvp
 MAX_FLOW_NUMBER = 7
 BANDWIDTH_UP_LIMIT = 10000
 
-test = rsvp.Connection(1, 1, 100, 1)
-flowTable = {'test':test}
+# test = rsvp.Connection(1, 1, 100, 1)
+# test2 = rsvp.Connection(1, 1, 100, 1)
+flowTable = {}
 myLock = threading.Lock()
 
 
@@ -49,15 +50,19 @@ def update(self):
 #         else:
 #             break
 
-def updater():
-    while True:
-        for key in flowTable:
-            update(flowTable[key])
-            printFlow(flowTable)
-            time.sleep(1)
+# def updater():
+#     while True:
+#         for key in flowTable:
+#             update(flowTable[key])
+#             printFlow(flowTable)
+#             time.sleep(1)
 
 def adjustment():
     while True:
+        for key in flowTable:
+            update(flowTable[key])
+            # printFlow(flowTable)
+            # time.sleep(1)
         for key in flowTable:
             if flowTable[key].connection_bandwidth <= flowTable[key].bandwidth:  # 增大带宽
                 if flowTable[key].connection_bandwidth * 2 <= flowTable[key].bandwidth:
@@ -69,24 +74,19 @@ def adjustment():
                     flowTable[key].connection_bandwidth -= BANDWIDTH_UP_LIMIT / 15
                 else:
                     flowTable[key].connection_bandwidth = 1
-        printFlow(flowTable)
-        print(test)
+            printFlow(flowTable)    # 此处改成调用socket接口
+        # print("test")
         time.sleep(2)
 
 
-def main():
-    threads = [threading.Thread(target=updater()), threading.Thread(target=adjustment())]
-    # flow_generate = threading.Thread(target=generator)
-    # flow_update = threading.Thread(target=updater())
-    # flow_adjust = threading.Thread(target=adjustment())
-    # #
-    # # flow_request.start()
-    # flow_adjust.start()
-    # flow_update.start()
-    for t in threads:
-        t.start()
-
-
-if __name__ == '__main__':
-    main()
+# def main():
+#     threads = [threading.Thread(target=adjustment())]
+#     for t in threads:
+#         t.start()
+#     for t in threads:
+#         t.join()
+#
+#
+# if __name__ == '__main__':
+#     main()
 
