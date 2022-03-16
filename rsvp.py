@@ -145,6 +145,8 @@ class Connection():
         self.connection_bandwidth = request_bw   #connection_bandwidth
         self.path = route
         self.bandwidth = 0
+        self.utilization_rate = 0
+        self.overflow = 0
         # self.connection_bandwidth = random.uniform(flowhead.BANDWIDTH_UP_LIMIT/10 * 3, flowhead.BANDWIDTH_UP_LIMIT/10 * 7)
 
 

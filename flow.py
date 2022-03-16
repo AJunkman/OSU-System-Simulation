@@ -23,12 +23,13 @@ def printFlow(table):
 
 def update(self):
     self.timeStamp = time.time()
-    self.bandwidth = random.uniform(BANDWIDTH_UP_LIMIT/10 * 3, BANDWIDTH_UP_LIMIT/10 * 7)
+    self.bandwidth = random.randint(BANDWIDTH_UP_LIMIT/10 * 3, BANDWIDTH_UP_LIMIT/10 * 7)
 
 
 
 def adjustment():
     while True:
+        myLock.acquire()
         for key in flowTable:
             update(flowTable[key])
 
@@ -37,19 +38,23 @@ def adjustment():
                 if flowTable[key].connection_bandwidth * 2 <= flowTable[key].bandwidth:
                     flowTable[key].connection_bandwidth *= 2
                 else:
-                    flowTable[key].connection_bandwidth += BANDWIDTH_UP_LIMIT / 10
+                    flowTable[key].connection_bandwidth += BANDWIDTH_UP_LIMIT / 8
             else:  # 减小带宽
                 if flowTable[key].connection_bandwidth - BANDWIDTH_UP_LIMIT / 10 > 0:
                     flowTable[key].connection_bandwidth -= BANDWIDTH_UP_LIMIT / 15
                 else:
                     flowTable[key].connection_bandwidth = 1
-
+            flowTable[key].utilization_rate = flowTable[key].bandwidth / flowTable[key].connection_bandwidth
+            if flowTable[key].bandwidth > flowTable[key].connection_bandwidth:
+                flowTable[key].overflow = flowTable[key].bandwidth - flowTable[key].connection_bandwidth
+            else:
+                flowTable[key] = 0
             # 发给后端
             client_send_type = 2            
             packet = flowTable[key]    # packet = flowTable   flowTable[key] 
             connectClient.main(client_send_type,key,packet)
             client_send_type = 0
-            
-        time.sleep(2)
+        myLock.release()
+        time.sleep(10)
 
 
