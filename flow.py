@@ -7,8 +7,8 @@ import connectClient
 MAX_FLOW_NUMBER = 7
 BANDWIDTH_UP_LIMIT = 10000
 
-test = rsvp.Connection(1, 1, 100, 1)
-test2 = rsvp.Connection(1, 1, 100, 1)
+# test = rsvp.Connection(1, 1, 100, 1)
+# test2 = rsvp.Connection(1, 1, 100, 1)
 flowTable = {}
 
 myLock = threading.Lock()
@@ -59,6 +59,6 @@ def adjustment():
         myLock.release()
         time.sleep(10)
 
-if __name__ == '__main__':
-    flowTable
-    adjustment()
+# if __name__ == '__main__':
+#     flowTable
+#     adjustment()
