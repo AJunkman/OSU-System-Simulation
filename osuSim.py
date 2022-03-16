@@ -16,7 +16,9 @@ import ospf
 import rsvp
 import log
 import connectServer  #!!!! connectServer，用于和client通信
+import connectClient
 import flowhead
+import flow
 
 
 # 重写Thread中的方法，实现多定时任务不间断执行
@@ -111,7 +113,7 @@ class RxProtocol(asyncio.Protocol):
                 resvTearMsg = rsvp.ResvTearMsg(packet['lsp_id'], packet['src_ip'], packet['dst_ip'], packet['route'])
                 self.osu._resvTear(resvTearMsg)
             else:
-                pass         
+                pass
         else:
             pass
 
@@ -177,7 +179,7 @@ class Control(object):
         pathMsg.set_lsp_id()                                    # 设置LSP标识符（LSP ID）：随机
         pathMsg.route = osu.shortestPath[packet['dst_ip']] # 根据目的地址dst，计算最短路径
         osu._path(pathMsg)
-    
+
     def tear_conn(osu, packet):
         pass
 
@@ -213,7 +215,7 @@ class OSU(object):
         self._timers['hello'] = mktimer(ospf.HELLO_INTERVAL, self._hello)
         self._timers['rsvp_refresh'] = mktimer(rsvp.REFRESH_PERIOD, self._rsvp_refresh_timer)
         # self._timers['rsvp_cleanup'] = mktimer(rsvp.CLEANUP_INTERVAL, self._rsvp_cleanup_timer)
-        self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
+        # self._timers['createConnTest'] = mktimer(rsvp.CREATE_CONN_INTERVAL, self._createConnTest)
 
     def _rsvp_cleanup_timer(self):
         # 该函数功能：1. 遍历PSB、RSB，选出非本机生成的连接；2. 每次对cleanup属性加1
@@ -238,16 +240,14 @@ class OSU(object):
         # 遍历所有已启用端口，检查存储其中的PSB
         for iface_name in self._interfaces:
             interface = self._interfaces[iface_name]
-            for uuid in interface.connection.keys():
+            # for uuid in interface.connection.keys():
+            for uuid in interface.connection.copy().keys():
                 # 若该连接起源于本机
                 if interface.connection[uuid].src_ip == self._hostname:
                     out_iface_list = [interface.rsb[uuid].interface]
                     self._rsvp_path_refresh(interface.psb[uuid], interface.connection[uuid], out_iface_list)
                     logging.info("{}-****Time to Refresh****uuid is {}, the rest of time is {}"
                                  .format(self._hostname, uuid, interface.psb[uuid].cleanup))
-                    self._rsvp_resv_refresh(interface.rsb[uuid], interface.connection[uuid], out_iface_list)
-                    logging.info("{}-****Time to Refresh****uuid is {}, the rest of time is {}"
-                                 .format(self._hostname, uuid, interface.rsb[uuid].cleanup))
         return None
 
     def _rsvp_path_refresh(self, spec_psb, spec_conn, out_iface_list):
@@ -263,7 +263,7 @@ class OSU(object):
         5 - 将该PATH消息传送至对应（多个）端口
         """
         # 1 - 初始化一个PATH消息
-        PATH_MSG = rsvp.PathMsg(spec_conn.src_ip, spec_conn.dst_ip, spec_conn.request_bw)
+        PATH_MSG = rsvp.PathMsg(spec_conn.src_ip, spec_conn.dst_ip, spec_conn.connection_bandwidth)
         # 2 - 设置TIME_VALUE
         PATH_MSG.set_time_value(rsvp.REFRESH_PERIOD)
         # 3 - 将PSB中的发送方描述符添加至PATH消息中
@@ -272,21 +272,6 @@ class OSU(object):
         # 5 - 将该PATH消息传送至对应（多个）端口
         for iface in out_iface_list:
             iface.transmit(PATH_MSG)
-        return None
-    
-    def _rsvp_resv_refrsh(self, spec_rsb, spec_conn, out_iface_list):
-        """
-        可由刷新定时器、PATH消息、RESV消息、RTEAR消息、RERR消息触发
-        """
-        # 初始化一个resv消息
-        RESV_MSG = rsvp.ResvMsg(spec_conn.dst_ip, spec_conn.scr_ip, spec_conn.request_bw)
-        # 设置resv消息的TIME_VALUE
-        RESV_MSG.set_time_value(rsvp.REFRESH_PERIOD)
-        # 将RSB中的发送方描述符添加至RESV消息中
-        RESV_MSG.set_lsp_id(spec_rsb.lsp_id)
-        RESV_MSG.set_route(spec_conn.resv)
-        for iface in out_iface_list:
-            iface.transmit(RESV_MSG)
         return None
 
     def _update_lsdb(self):
@@ -330,30 +315,36 @@ class OSU(object):
             if len(nodes) != 2:
                 continue
             n1, n2 = nodes.keys()
+            next_hop = None
             if self._hostname in nodes:
                 # 假设路由器通过自己的接口发送数据，即使成本更高
                 dest = next_hop = (n2 if n1 == self._hostname else n1)
                 cost = nodes[self._hostname]
             else:
                 # 确定哪个节点是到目标网络的较短路径
-                dest = (n1 if paths[n1][1] + nodes[n1] < paths[n2][1] + nodes[n2] else n2)
-                next_hop, cost = paths[dest]
-                # 获取实际成本
-                cost += nodes[dest]
+                if n1 in paths.keys() and n2 in paths.keys():
+                    logging.info(f'n1 is {n1}, and n2 is {n2}')
+                    dest = (n1 if paths[n1][1] + nodes[n1] < paths[n2][1] + nodes[n2] else n2)
+                    next_hop, cost = paths[dest]
+                    # 获取实际成本
+                    cost += nodes[dest]
             # 获取其他信息
-            iface, gateway = self._neighbors[next_hop][:2]
-            netmask = self._lsdb[dest].networks[network][3]
-            if self._hostname in nodes:
-                gateways[cost] = (gateway, iface)
-                gateway = '-'
-            r = Route(network, gateway, netmask, cost, iface)
-            self._table.append(r)
+            if next_hop is not None and next_hop in self._neighbors.keys():
+                logging.info(f"self.neighbors is {self._neighbors}")
+                iface, gateway = self._neighbors[next_hop][:2]
+                netmask = self._lsdb[dest].networks[network][3]
+                if self._hostname in nodes:
+                    gateways[cost] = (gateway, iface)
+                    gateway = '-'
+                r = Route(network, gateway, netmask, cost, iface)
+                self._table.append(r)
         if gateways:
             cost = min(gateways.keys())
             gateway, iface = gateways[cost]
             self._table.append(Route('0.0.0.0', gateway, '0.0.0.0', cost, iface))
 
     def _break_adjacency(self, neighbor_id):
+        logging.info(f'neighbor_id is {neighbor_id}')
         self._dead_timer = self._timers[neighbor_id]
         del self._timers[neighbor_id]
         del self._neighbors[neighbor_id]
@@ -460,7 +451,7 @@ class OSU(object):
             for iface in self._interfaces.values():
                 if hop == iface.link:
                     _iface = iface
-                    return _iface         
+                    return _iface
 
     def IfaceRx(self, loop, name):
         #为子线程设置自己的事件循环
@@ -468,17 +459,21 @@ class OSU(object):
         async def init_rx_server():
             # OSU调用消息接收协议：--(OSU, name)
             server = await loop.create_server(
-                    lambda: RxProtocol(self, name),  
+                    lambda: RxProtocol(self, name),
                     '127.0.0.1', self._interfaces[name].port)
             async with server:
                     await server.serve_forever()
         future = asyncio.gather(init_rx_server())
         loop.run_until_complete(future)
 
+#………………………………………………………………………………………………………………………………………………………………………………………………………………………………
+#       【websocket通信】：server启动
+#………………………………………………………………………………………………………………………………………………………………………………………………………………………………
+
     def ControlPortRx(self, loop):
         asyncio.set_event_loop(loop)
         start_server = websockets.serve(
-            functools.partial(connectServer.ConServer_logic, self), 
+            functools.partial(connectServer.ConServer_recv_logic, self),
             "localhost", self.webSocket_port)
         asyncio.get_event_loop().run_until_complete(start_server)
         asyncio.get_event_loop().run_forever()
@@ -500,7 +495,7 @@ class OSU(object):
             t.start()
 
     def _createConnTest(self):
-        
+
         for dst in self.shortestPath.keys():
             request_bw = random.randint(2, 10000)
             pathMsg = rsvp.PathMsg(self._hostname, dst, request_bw)
@@ -605,28 +600,6 @@ class OSU(object):
 
     # 处理resvMsg，向上游沿途预留资源
     def _resv(self, resvMsg):
-        """
-        RESV Msg 处理流程（详见RFC P9）：
-        1 - 初始化 Refresh_PHOP_list 为空列表， Resv_Refresh_Needed 及 NeworMod 标志为 False，用于控制即刻保留刷新
-        2 - 确定输出端口
-        3 - 检查路径状态，是否存在PSB
-        3.1 - 无PSB，触发RERR Msg，“No path information"，报文丢弃并返回
-        3.2 - 存在PSB，SrcPorts不同，触发RERR Msg，”Ambiguous Path“，丢弃并返回
-        3.3 - 将PSB的PHOP添加至Refresh_PHOP_list
-        4 - 检查RSB，若格式错误，触发RERR Msg，”Conflicting Style“，丢弃并返回
-        5 - 搜索或建立RSB
-        5.1 - 若RSB为新，设置NHOP、端口（其余见RFC 2209 P11），设置NeworMod为True
-        5.2 - 若RSB已存，更新RSB信息，设置NeworMod为True
-        6 - RSB中的cleanup赋值为0
-        7 - 检查NeworMod标志
-        7.1 - 若为False，跳过
-        7.2 - 若为True，触发 UPDATE TRAFFIC CONTROL事件。
-            7.2.1 - 若返回修改traffic control state，设置Resv_Refresh_Needed为True，进入RESV_EVENT
-            7.2.2 - 若返回错误，撤销本次对RSB的所有操作
-        8 - 检查Resv_Refresh_Needed标志
-        8.1 - 若为True，触发 RESV REFRESH，发送至Refresh_PHOP_list
-        9 - 丢弃并返回
-        """
         routeObject = rsvp.RouteObject(resvMsg.src_ip, resvMsg.dst_ip, resvMsg.route)
         if resvMsg.src_ip != self._hostname:
             prv_hop = routeObject.get_prev_hop(self._hostname)
@@ -651,11 +624,18 @@ class OSU(object):
                         resvErrMsg = rsvp.ResvErrMsg(resvMsg.lsp_id, resvMsg.dst_ip, resvMsg.src_ip, self._hostname, resvMsg.route)
                         resvErrMsg.route.reverse()
                         self._resvErr(resvErrMsg)
+#………………………………………………………………………………………………………………………………………………………………………………………………………………………………
+#       【创建连接成功】：（1）触发server发业务连接消息
+#………………………………………………………………………………………………………………………………………………………………………………………………………………………………
             else:
                 conn = rsvp.Connection(resvMsg.dst_ip, resvMsg.src_ip, resvMsg.request_bw, resvMsg.route)
                 if pre_iface.conn_insert(resvMsg.lsp_id, conn):
                     logging.info('%s-RSB created successfully by %s —> lsp_id: %s'%(self._hostname, pre_iface.name, resvMsg.lsp_id, ))
                     logging.info("%s-The %s connection between %s and %s is successfully created"%(self._hostname, resvMsg.request_bw, resvMsg.dst_ip, resvMsg.src_ip))
+                    client_send_type = 1
+                    packet = conn
+                    connectClient.main(client_send_type, resvMsg.lsp_id, packet)
+                    client_send_type = 0
         else:
             next_hop = routeObject.get_next_hop(self._hostname)
             next_iface = self.find_iface(next_hop)
@@ -666,7 +646,7 @@ class OSU(object):
                 else:
                     resvErrMsg = rsvp.ResvErrMsg(resvMsg.lsp_id, resvMsg.dst_ip, resvMsg.src_ip, self._hostname, resvMsg.route)
                     resvErrMsg.route.reverse()
-                    self._resvErr(resvErrMsg)            
+                    self._resvErr(resvErrMsg)
             # 资源变化，通告LSA消息
             # self._advertise()
 
@@ -706,7 +686,7 @@ class OSU(object):
             if pre_iface:
                 if pathTearMsg.lsp_id in pre_iface.rsb:
                     rsvp.Resource.release(pre_iface, pathTearMsg)
-                    pre_iface.rsb.pop(pathTearMsg.lsp_id) 
+                    pre_iface.rsb.pop(pathTearMsg.lsp_id)
                     logging.info('%s-RSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
                 if pathTearMsg.lsp_id in pre_iface.psb:
                     pre_iface.psb.pop(pathTearMsg.lsp_id)
@@ -717,7 +697,7 @@ class OSU(object):
             if next_iface:
                 if pathTearMsg.lsp_id in next_iface.rsb:
                     rsvp.Resource.release(next_iface, pathTearMsg)
-                    next_iface.rsb.pop(pathTearMsg.lsp_id) 
+                    next_iface.rsb.pop(pathTearMsg.lsp_id)
                     logging.info('%s-RSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
                 if pathTearMsg.lsp_id in next_iface.psb:
                     next_iface.psb.pop(pathTearMsg.lsp_id)
@@ -727,11 +707,6 @@ class OSU(object):
             logging.info('%s-lsp_psb(id: %s) successfully tear by pathTear'%(self._hostname, pathTearMsg.lsp_id, ))
 
     def _resvTear(self, resvTearMsg):
-        """
-        RTEAR与RESV消息处理大致相同
-        1 - Resv_Refresh_Needed 初始化为 False，Refresh_PHOP_list 为空
-        2 -
-        """
         routeObject = rsvp.RouteObject(resvTearMsg.src_ip, resvTearMsg.dst_ip, resvTearMsg.route)
         if resvTearMsg.src_ip != self._hostname:
             prv_hop = routeObject.get_prev_hop(self._hostname)
@@ -739,7 +714,7 @@ class OSU(object):
             if pre_iface:
                 if resvTearMsg.lsp_id in pre_iface.rsb:
                     rsvp.Resource.release(pre_iface, resvTearMsg)
-                    pre_iface.rsb.pop(resvTearMsg.lsp_id) 
+                    pre_iface.rsb.pop(resvTearMsg.lsp_id)
                     logging.info('%s-RSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
                 if resvTearMsg.lsp_id in pre_iface.psb:
                     pre_iface.psb.pop(resvTearMsg.lsp_id)
@@ -750,12 +725,12 @@ class OSU(object):
             if next_iface:
                 if resvTearMsg.lsp_id in next_iface.rsb:
                     rsvp.Resource.release(next_iface, resvTearMsg)
-                    next_iface.rsb.pop(resvTearMsg.lsp_id) 
+                    next_iface.rsb.pop(resvTearMsg.lsp_id)
                     logging.info('%s-RSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
                 if resvTearMsg.lsp_id in next_iface.psb:
                     next_iface.psb.pop(resvTearMsg.lsp_id)
                     logging.info('%s-PSB of lsp_id(%s) successfully tear by resvTear'%(self._hostname, resvTearMsg.lsp_id, ))
-                next_iface.transmit(resvTearMsg) 
+                next_iface.transmit(resvTearMsg)
         else:
             prv_hop = routeObject.get_prev_hop(self._hostname)
             pre_iface = self.find_iface(prv_hop)
@@ -789,7 +764,8 @@ class Interface():
     def transmit(self, packet):
         # 通过接口发送数据包
         thread_loop = asyncio.new_event_loop()
-        t = threading.Thread(target=IfaceTx, args=(thread_loop,self.remote_end_host, self.remote_end_port, packet,))
+        t = threading.Thread(target=IfaceTx, args=(thread_loop,self.remote_end_host,
+            self.remote_end_port, packet,))
         t.daemon = True
         t.start()
 
@@ -820,7 +796,8 @@ class Interface():
     # 连接管理-插入连接
     def conn_insert(self, lsp_id, conn):
         if lsp_id not in self.connection:
-            flowhead.flowTable[lsp_id] = conn
+            # flowhead.flowTable[lsp_id] = conn
+            flow.flowTable[lsp_id] = conn
             self.connection[lsp_id] = conn
             self.connNum += 1
             return True

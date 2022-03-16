@@ -9,7 +9,7 @@ def _scale_time(minutes):
 
 
 BANDWIDTH_BASE = 10e7           # 100 Mbps
-HELLO_INTERVAL = 10             # 10 seconds
+HELLO_INTERVAL = 30             # 10 seconds
 DEAD_INTERVAL = 4 * HELLO_INTERVAL  # 为 HELLO_INTERVAL 的四倍
 AGE_INTERVAL = _scale_time(1)   # 1 minute
 LS_REFRESH_TIME = _scale_time(30)   # 30 minutes - LSA刷新时间
