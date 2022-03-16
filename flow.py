@@ -7,9 +7,10 @@ import connectClient
 MAX_FLOW_NUMBER = 7
 BANDWIDTH_UP_LIMIT = 10000
 
-# test = rsvp.Connection(1, 1, 100, 1)
-# test2 = rsvp.Connection(1, 1, 100, 1)
+test = rsvp.Connection(1, 1, 100, 1)
+test2 = rsvp.Connection(1, 1, 100, 1)
 flowTable = {}
+
 myLock = threading.Lock()
 
 
@@ -30,10 +31,10 @@ def update(self):
 def adjustment():
     while True:
         myLock.acquire()
-        for key in flowTable:
+        for key in flowTable.copy():
             update(flowTable[key])
 
-        for key in flowTable:
+        for key in flowTable.copy():
             if flowTable[key].connection_bandwidth <= flowTable[key].bandwidth:  # 增大带宽
                 if flowTable[key].connection_bandwidth * 2 <= flowTable[key].bandwidth:
                     flowTable[key].connection_bandwidth *= 2
@@ -41,7 +42,7 @@ def adjustment():
                     flowTable[key].connection_bandwidth += BANDWIDTH_UP_LIMIT / 8
             else:  # 减小带宽
                 if flowTable[key].connection_bandwidth - BANDWIDTH_UP_LIMIT / 10 > 0:
-                    flowTable[key].connection_bandwidth -= BANDWIDTH_UP_LIMIT / 15
+                    flowTable[key].connection_bandwidth -= BANDWIDTH_UP_LIMIT / 20
                 else:
                     flowTable[key].connection_bandwidth = 1
             flowTable[key].utilization_rate = flowTable[key].bandwidth / flowTable[key].connection_bandwidth
@@ -54,7 +55,10 @@ def adjustment():
             packet = flowTable[key]    # packet = flowTable   flowTable[key] 
             connectClient.main(client_send_type,key,packet)
             client_send_type = 0
+            printFlow(flowTable[key])
         myLock.release()
         time.sleep(10)
 
-
+if __name__ == '__main__':
+    flowTable
+    adjustment()
